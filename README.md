@@ -10,7 +10,7 @@ English | [中文](README_CN.md)
   <img src="https://img.shields.io/badge/python-3.8+-blue.svg" alt="Python 3.8+">
   <img src="https://img.shields.io/badge/services-19-orange.svg" alt="19 Services">
   <img src="https://img.shields.io/badge/regions-34-green.svg" alt="34 Regions">
-  <img src="https://img.shields.io/badge/tests-77%20passed-brightgreen.svg" alt="77 Tests">
+  <img src="https://img.shields.io/badge/tests-93%20passed-brightgreen.svg" alt="93 Tests">
   <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License">
 </p>
 
@@ -264,6 +264,13 @@ python3 pricing_tool.py refresh                       # Clear all cache
 python3 pricing_tool.py --no-cache query ec2 -t ...   # Skip cache once
 ```
 
+### `regions` — List All Supported Regions
+
+```bash
+python3 pricing_tool.py regions                       # Table output
+python3 pricing_tool.py regions --json                # JSON output
+```
+
 ### Output Formats
 
 All query commands (`query`, `batch`, `compare`, `list`) support:
@@ -387,8 +394,8 @@ aws-pricing-tool/
 ├── SKILL.md           # Kiro Skill definition (template)
 ├── CLAUDE_COMMAND.md  # Claude Code slash command (template)
 ├── conftest.py        # Test fixtures (mock AWS API responses)
-├── test_unit.py       # Unit tests (55)
-├── test_e2e.py        # End-to-end tests (22)
+├── test_unit.py       # Unit tests (66)
+├── test_e2e.py        # End-to-end tests (27)
 ├── logo.png           # Project logo
 ├── README.md          # This document (English)
 ├── README_CN.md       # Chinese documentation
@@ -399,7 +406,7 @@ aws-pricing-tool/
 
 ```bash
 pip3 install pytest
-python3 -m pytest -v                    # Run all 77 tests
+python3 -m pytest -v                    # Run all 93 tests
 python3 -m pytest test_unit.py -v       # Unit tests only
 python3 -m pytest test_e2e.py -v        # E2E tests only
 python3 -m pytest -k "extract_pricing"  # Filter by name
@@ -409,8 +416,8 @@ Test coverage:
 
 | File | Tests | Coverage |
 |------|-------|----------|
-| `test_unit.py` | 55 | Region resolution, cache R/W, pricing extraction (OD + 6 RI), dedup/sort, formatting, 19 service filters, JSON/CSV output, color |
-| `test_e2e.py` | 22 | CLI arg parsing, --version/--help, query/batch/compare/list JSON/CSV/table output, cache commands, error handling |
+| `test_unit.py` | 66 | Region resolution, cache R/W, pricing extraction (OD + 6 RI), dedup/sort, formatting, 19 service filters, JSON/CSV output, color |
+| `test_e2e.py` | 27 | CLI arg parsing, --version/--help, query/batch/compare/list JSON/CSV/table output, cache commands, error handling |
 
 E2E tests invoke the real CLI via subprocess with a mock runner injecting simulated API responses — no AWS credentials needed.
 
@@ -426,7 +433,7 @@ E2E tests invoke the real CLI via subprocess with a mock runner injecting simula
 
 | Version | Date | Changes |
 |---------|------|---------|
-| v1.2.0 | 2025-02-27 | `--json`/`--csv` on all commands; colored terminal output; region-specific `list`; `--version`; 19 service filters; 3yr_No_Upfront RI fix; 77 tests |
+| v1.2.0 | 2025-02-27 | `--json`/`--csv` on all commands; colored terminal output; region-specific `list`; `--version`; 19 service filters; 3yr_No_Upfront RI fix; `regions` command; 93 tests |
 | v1.0.0 | 2025-02-25 | Initial release: 19 services × 34 regions, query/batch/compare/list, local cache |
 
 ---

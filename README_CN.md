@@ -246,6 +246,13 @@ python3 pricing_tool.py refresh                       # 清除全部缓存
 python3 pricing_tool.py --no-cache query ec2 -t ...   # 单次跳过缓存
 ```
 
+### `regions` — 列出所有支持的 Region
+
+```bash
+python3 pricing_tool.py regions                       # 表格输出
+python3 pricing_tool.py regions --json                # JSON 输出
+```
+
 ### 输出格式
 
 所有查询命令（`query`、`batch`、`compare`、`list`）均支持三种输出：
@@ -369,8 +376,8 @@ aws-pricing-tool/
 ├── SKILL.md           # Kiro Skill 定义文件（模板，需配置路径和 Profile）
 ├── CLAUDE_COMMAND.md  # Claude Code Slash Command 文件（模板）
 ├── conftest.py        # 测试 fixtures（模拟 AWS API 响应）
-├── test_unit.py       # 单元测试（55 个）
-├── test_e2e.py        # 端到端测试（22 个）
+├── test_unit.py       # 单元测试（66 个）
+├── test_e2e.py        # 端到端测试（27 个）
 ├── logo.png           # 项目 Logo
 ├── README.md          # 本文档
 └── .gitignore
@@ -380,7 +387,7 @@ aws-pricing-tool/
 
 ```bash
 pip3 install pytest
-python3 -m pytest -v                    # 运行全部 77 个测试
+python3 -m pytest -v                    # 运行全部 93 个测试
 python3 -m pytest test_unit.py -v       # 仅单元测试
 python3 -m pytest test_e2e.py -v        # 仅 E2E 测试
 python3 -m pytest -k "extract_pricing"  # 按名称过滤
@@ -390,8 +397,8 @@ python3 -m pytest -k "extract_pricing"  # 按名称过滤
 
 | 文件 | 测试数 | 覆盖范围 |
 |------|--------|----------|
-| `test_unit.py` | 55 | Region 解析、缓存读写、价格提取（OD + 6 RI）、去重排序、格式化、19 服务 filter、JSON/CSV 输出、颜色 |
-| `test_e2e.py` | 22 | CLI 参数解析、--version/--help、query/batch/compare/list 全命令 JSON/CSV/表格输出、缓存命令、错误处理 |
+| `test_unit.py` | 66 | Region 解析、缓存读写、价格提取（OD + 6 RI）、去重排序、格式化、19 服务 filter、JSON/CSV 输出、颜色 |
+| `test_e2e.py` | 27 | CLI 参数解析、--version/--help、query/batch/compare/list 全命令 JSON/CSV/表格输出、缓存命令、错误处理 |
 
 E2E 测试通过 subprocess 调用真实 CLI，使用 mock runner 注入模拟 API 响应，无需 AWS 凭证。
 
@@ -407,5 +414,5 @@ E2E 测试通过 subprocess 调用真实 CLI，使用 mock runner 注入模拟 A
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
-| v1.2.0 | 2025-02-27 | 全命令 `--json`/`--csv` 输出；终端彩色；`list` 按 Region 过滤；`--version`；19 服务 filter 补全；3yr_No_Upfront RI 修复；77 个测试 |
+| v1.2.0 | 2025-02-27 | 全命令 `--json`/`--csv` 输出；终端彩色；`list` 按 Region 过滤；`--version`；19 服务 filter 补全；3yr_No_Upfront RI 修复；`regions` 命令；93 个测试 |
 | v1.0.0 | 2025-02-25 | 初始版本：19 服务 × 34 Region，query/batch/compare/list，本地缓存 |
