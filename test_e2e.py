@@ -221,3 +221,37 @@ class TestErrors:
     def test_missing_required_args(self):
         _, _, rc = run("query", "ec2")
         assert rc != 0
+
+    def test_json_csv_mutual_exclusion(self):
+        out, err, rc = run_mocked("query", "ec2", "-t", "c6g.xlarge", "-r", "tokyo", "--json", "--csv")
+        assert rc != 0
+        assert "mutually exclusive" in err
+
+
+class TestRegionsE2E:
+    def test_regions_json(self):
+        out, _, rc = run("regions", "--json")
+        assert rc == 0
+        data = json.loads(out)
+        assert len(data) == 34
+
+    def test_regions_table(self):
+        out, _, rc = run("regions")
+        assert rc == 0
+        assert "ap-northeast-1" in out
+
+
+class TestCompareEdgeCases:
+    def test_compare_single_region_no_star(self):
+        out, err, rc = run_mocked("compare", "ec2", "-t", "c6g.xlarge", "-r", "tokyo")
+        assert rc == 0, f"stderr: {err}"
+        assert "★" not in out
+
+
+class TestBatchMultiType:
+    def test_batch_multiple_types_json(self):
+        out, err, rc = run_mocked("batch", "ec2", "-t", "c6g.xlarge", "-r", "tokyo", "--json")
+        assert rc == 0, f"stderr: {err}"
+        data = json.loads(out)
+        assert len(data) >= 1
+        assert "monthly" in data[0]

@@ -268,6 +268,23 @@ class TestBuildFilters:
             f = pt.build_filters(svc, self._args())
             assert "location" in f, f"{svc} missing location filter"
 
+    def test_ecs_filters(self):
+        f = pt.build_filters("ecs", self._args())
+        assert f["operatingSystem"] == "Linux"
+        assert f["tenancy"] == "Shared"
+
+    def test_eks_filters(self):
+        f = pt.build_filters("eks", self._args())
+        assert f["operatingSystem"] == "Linux"
+
+    def test_evs_filters(self):
+        f = pt.build_filters("evs", self._args())
+        assert f["productFamily"] == "Compute Instance"
+
+    def test_timestream_filters(self):
+        f = pt.build_filters("timestream", self._args())
+        assert f["productFamily"] == "Compute Instance"
+
 
 # ── output helpers ──────────────────────────────────────────────
 
@@ -302,6 +319,13 @@ class TestPrintResults:
         assert len(data) == 1
         assert data[0]["instance_type"] == "c6g.xlarge"
         assert r is not None
+
+    def test_json_includes_monthly(self, capsys):
+        pt.print_results(self._results(), "ec2", output_json=True)
+        out = capsys.readouterr().out
+        data = json.loads(out)
+        assert "monthly" in data[0]
+        assert data[0]["monthly"] == pytest.approx(data[0]["price_per_hour"] * 730, rel=0.01)
 
     def test_csv_output(self, capsys):
         r = pt.print_results(self._results(), "ec2", output_csv=True)
@@ -339,3 +363,43 @@ class TestColor:
         with patch.object(pt, "_USE_COLOR", True):
             assert "\033[32m" in pt._green("hi")
             assert "\033[1m" in pt._bold("hi")
+
+
+# ── _check_output_flags ────────────────────────────────────────
+
+class TestCheckOutputFlags:
+    def test_json_only(self):
+        args = SimpleNamespace(json=True, csv=False)
+        assert pt._check_output_flags(args) == (True, False)
+
+    def test_csv_only(self):
+        args = SimpleNamespace(json=False, csv=True)
+        assert pt._check_output_flags(args) == (False, True)
+
+    def test_neither(self):
+        args = SimpleNamespace(json=False, csv=False)
+        assert pt._check_output_flags(args) == (False, False)
+
+    def test_both_exits(self):
+        args = SimpleNamespace(json=True, csv=True)
+        with pytest.raises(SystemExit):
+            pt._check_output_flags(args)
+
+
+# ── cmd_regions ─────────────────────────────────────────────────
+
+class TestCmdRegions:
+    def test_regions_json(self, capsys):
+        args = SimpleNamespace(json=True)
+        data = pt.cmd_regions(args)
+        out = capsys.readouterr().out
+        parsed = json.loads(out)
+        assert len(parsed) == 34
+        assert all("code" in r and "name" in r for r in parsed)
+
+    def test_regions_table(self, capsys):
+        args = SimpleNamespace(json=False)
+        pt.cmd_regions(args)
+        out = capsys.readouterr().out
+        assert "ap-northeast-1" in out
+        assert "us-east-1" in out

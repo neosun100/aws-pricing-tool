@@ -116,12 +116,13 @@ def resolve_region(region):
 def resolve_location(region):
     return REGION_MAP.get(resolve_region(region), region)
 
-def query_products(client, service_code, filters, use_cache=True):
+def query_products(client, service_code, filters, use_cache=True, quiet=False):
     cpath = _cache_key("products", service_code, filters)
     if use_cache:
         cached = cache_get(cpath)
         if cached is not None:
-            print("  (cached)", file=sys.stderr)
+            if not quiet:
+                print("  (cached)", file=sys.stderr)
             return cached
     api_filters = [{"Type": "TERM_MATCH", "Field": k, "Value": v} for k, v in filters.items() if v]
     products = []
@@ -254,12 +255,13 @@ def _print_ri(r, key, label):
     extra = ""
     if "all_upfront" in key:
         total = r.get(f"ri_{key}_total")
-        if total: extra = f"  [预付${total:,.0f}]"
+        if total: extra = f"  [Upfront ${total:,.0f}]"
     print(f"  {label:<14} : {fmt(val)}  ({_green(f'{saving:.0f}% off')}){extra}")
 
 def print_results(results, service, output_json=False, output_csv=False):
     unique = dedup_results(results)
     if output_json:
+        for r in unique: r["monthly"] = round(r.get("price_per_hour", 0) * 730, 2)
         _output_json(unique); return unique
     if output_csv:
         fields = ["instance_type","vcpu","memory","os","price_per_hour","monthly",
@@ -322,34 +324,57 @@ def build_filters(service, args):
         f["productFamily"] = "Streaming Instance"
     elif service == "workspaces":
         f["productFamily"] = "WorkSpaces Instances"
+    elif service == "ecs":
+        f["operatingSystem"] = getattr(args, "os", "Linux") or "Linux"
+        f["tenancy"] = "Shared"
+        f["capacitystatus"] = "Used"
+    elif service == "eks":
+        f["operatingSystem"] = getattr(args, "os", "Linux") or "Linux"
+        f["tenancy"] = "Shared"
+        f["capacitystatus"] = "Used"
+    elif service == "evs":
+        f["productFamily"] = "Compute Instance"
+    elif service == "timestream":
+        f["productFamily"] = "Compute Instance"
     return f
 
+def _check_output_flags(args):
+    if getattr(args, "json", False) and getattr(args, "csv", False):
+        print("Error: --json and --csv are mutually exclusive.", file=sys.stderr)
+        sys.exit(1)
+    return getattr(args, "json", False), getattr(args, "csv", False)
+
 def cmd_query(args):
+    out_json, out_csv = _check_output_flags(args)
     client = get_client(args.profile)
     sc = SERVICE_CODES.get(args.service)
     if not sc: print(f"Unknown service: {args.service}"); sys.exit(1)
     filters = build_filters(args.service, args)
     no_cache = getattr(args, "no_cache", False)
-    products = query_products(client, sc, filters, use_cache=not no_cache)
-    return print_results([extract_pricing(p) for p in products], args.service,
-                         getattr(args, "json", False), getattr(args, "csv", False))
+    products = query_products(client, sc, filters, use_cache=not no_cache, quiet=out_json or out_csv)
+    return print_results([extract_pricing(p) for p in products], args.service, out_json, out_csv)
 
 def cmd_batch(args):
+    out_json, out_csv = _check_output_flags(args)
     client = get_client(args.profile)
     sc = SERVICE_CODES.get(args.service)
     if not sc: print(f"Unknown service: {args.service}"); sys.exit(1)
     no_cache = getattr(args, "no_cache", False)
+    quiet = out_json or out_csv
     types = [t.strip() for t in args.instance_types.split(",")]
     all_results = []
+    orig_type = args.instance_type if hasattr(args, "instance_type") else None
     for it in types:
         args.instance_type = it
         filters = build_filters(args.service, args)
-        products = query_products(client, sc, filters, use_cache=not no_cache)
+        products = query_products(client, sc, filters, use_cache=not no_cache, quiet=quiet)
         all_results.extend([extract_pricing(p) for p in products])
+    args.instance_type = orig_type
     unique = dedup_results(all_results)
-    if getattr(args, "json", False):
+    if out_json:
+        for r in unique: r["monthly"] = round(r.get("price_per_hour", 0) * 730, 2)
         _output_json(unique); return unique
-    if getattr(args, "csv", False):
+    if out_csv:
         fields = ["instance_type","vcpu","memory","price_per_hour","monthly","ri_1yr_no_upfront"]
         for r in unique: r["monthly"] = round(r.get("price_per_hour", 0) * 730, 2)
         _output_csv(unique, fields); return unique
@@ -367,28 +392,30 @@ def cmd_batch(args):
     return unique
 
 def cmd_compare(args):
+    out_json, out_csv = _check_output_flags(args)
     client = get_client(args.profile)
     sc = SERVICE_CODES.get(args.service)
     no_cache = getattr(args, "no_cache", False)
+    quiet = out_json or out_csv
     regions = [r.strip() for r in args.regions.split(",")]
     rows = []
-    for region in regions:
-        region = resolve_region(region)
-        args.region = region
+    for reg in regions:
+        resolved = resolve_region(reg)
+        args.region = resolved
         filters = build_filters(args.service, args)
-        products = query_products(client, sc, filters, use_cache=not no_cache)
+        products = query_products(client, sc, filters, use_cache=not no_cache, quiet=quiet)
         for p in products:
             r = extract_pricing(p)
             if r.get("price_per_hour"):
-                rows.append({"region": region, "price_per_hour": r["price_per_hour"],
+                rows.append({"region": resolved, "price_per_hour": r["price_per_hour"],
                              "monthly": round(r["price_per_hour"] * 730, 2),
                              "ri_1yr_no_upfront": r.get("ri_1yr_no_upfront"),
                              "ri_1yr_monthly": round(r["ri_1yr_no_upfront"] * 730, 2) if r.get("ri_1yr_no_upfront") else None,
                              "ri_3yr_no_upfront": r.get("ri_3yr_no_upfront")}); break
     rows.sort(key=lambda x: x["price_per_hour"])
-    if getattr(args, "json", False):
+    if out_json:
         _output_json(rows); return rows
-    if getattr(args, "csv", False):
+    if out_csv:
         _output_csv(rows, ["region","price_per_hour","monthly","ri_1yr_no_upfront","ri_1yr_monthly"]); return rows
     if not rows: print("No pricing results found."); return rows
     print(f"\n{_bold('='*90)}")
@@ -408,6 +435,7 @@ def cmd_compare(args):
     return rows
 
 def cmd_list(args):
+    out_json, out_csv = _check_output_flags(args)
     client = get_client(args.profile)
     sc = SERVICE_CODES.get(args.service)
     if not sc: print(f"Unknown service: {args.service}"); return
@@ -415,9 +443,9 @@ def cmd_list(args):
     types = list_instance_types(client, sc, resolve_location(args.region), use_cache=not no_cache)
     prefix = args.filter.lower() if args.filter else ""
     if prefix: types = [t for t in types if t.lower().startswith(prefix) or prefix in t.lower()]
-    if getattr(args, "json", False):
+    if out_json:
         _output_json({"service": args.service, "region": args.region, "count": len(types), "types": types}); return types
-    if getattr(args, "csv", False):
+    if out_csv:
         _output_csv([{"instance_type": t} for t in types], ["instance_type"]); return types
     print(f"\n{_cyan(args.service.upper())} instance types in {_bold(args.region)} ({len(types)} found):")
     for t in types: print(f"  {t}")
@@ -443,6 +471,19 @@ def cmd_cache_info(args):
         print(f"Oldest: {datetime.fromtimestamp(oldest).strftime('%Y-%m-%d %H:%M')}")
         print(f"Newest: {datetime.fromtimestamp(newest).strftime('%Y-%m-%d %H:%M')}")
     print()
+
+def cmd_regions(args):
+    out_json = getattr(args, "json", False)
+    data = [{"code": code, "name": name} for code, name in sorted(REGION_MAP.items())]
+    if out_json:
+        _output_json(data); return data
+    print(f"\nSupported regions ({len(REGION_MAP)}):\n")
+    print(f"  {'Code':<20} {'Name'}")
+    print(f"  {'─'*55}")
+    for code, name in sorted(REGION_MAP.items()):
+        print(f"  {code:<20} {name}")
+    print()
+    return data
 
 def main():
     parser = argparse.ArgumentParser(description="AWS Pricing Query Tool (with local cache)")
@@ -488,10 +529,13 @@ def main():
 
     sub.add_parser("refresh", help="Clear local price cache")
     sub.add_parser("cache-info", help="Show cache status")
+    p = sub.add_parser("regions", help="List all supported regions")
+    p.add_argument("--json", action="store_true", help="JSON output")
     args = parser.parse_args()
     if not args.command: parser.print_help(); sys.exit(1)
     cmds = {"query": cmd_query, "batch": cmd_batch, "compare": cmd_compare,
-            "list": cmd_list, "refresh": cmd_refresh, "cache-info": cmd_cache_info}
+            "list": cmd_list, "refresh": cmd_refresh, "cache-info": cmd_cache_info,
+            "regions": cmd_regions}
     cmds[args.command](args)
 
 if __name__ == "__main__":
