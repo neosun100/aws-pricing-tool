@@ -1,22 +1,159 @@
 # AWS Pricing Tool 🏷️
 
+English | [中文](README_CN.md)
+
 <p align="center">
   <img src="logo.png" alt="AWS Pricing Tool" width="200">
 </p>
 
-> 一条命令查询 AWS 任意服务的实时价格，支持 **34 个服务** × **34 个 Region** × **6 种 RI 方案**。
+<p align="center">
+  <img src="https://img.shields.io/badge/python-3.8+-blue.svg" alt="Python 3.8+">
+  <img src="https://img.shields.io/badge/services-19-orange.svg" alt="19 Services">
+  <img src="https://img.shields.io/badge/regions-34-green.svg" alt="34 Regions">
+  <img src="https://img.shields.io/badge/tests-77%20passed-brightgreen.svg" alt="77 Tests">
+  <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License">
+</p>
+
+> Query real-time AWS pricing for **19 services** × **34 regions** × **6 RI options** with a single command.
 
 ```bash
-# 30 秒上手
 pip3 install boto3
-python3 pricing_tool.py --profile <your-profile> query ec2 -t c6g.xlarge -r 东京
+python3 pricing_tool.py --version                                              # v1.2.0
+python3 pricing_tool.py --profile <your-profile> query ec2 -t c6g.xlarge -r tokyo
 ```
 
 ---
 
-## 快速开始
+## Table of Contents
 
-### 第 1 步：安装
+- [Features](#features)
+- [AI Skill Integration](#-ai-skill-integration)
+- [Quick Start](#quick-start)
+- [Command Reference](#command-reference)
+- [Supported Regions](#supported-regions-34)
+- [Instance Naming Convention](#instance-naming-convention)
+- [Tips & Tricks](#tips--tricks)
+- [FAQ](#faq)
+- [Development](#development)
+- [Changelog](#changelog)
+- [License](#license)
+
+---
+
+## Features
+
+- 🌏 **34 Regions** — Use Chinese, English, or region codes (`东京` / `tokyo` / `ap-northeast-1`)
+- 💰 **7 Price Points** — On-Demand + 6 RI options (1yr/3yr × No/Partial/All Upfront)
+- 📊 **4 Commands** — `query` single / `batch` multi-type / `compare` cross-region / `list` types
+- 📤 **3 Output Formats** — Colored terminal table / `--json` / `--csv`
+- ⚡ **Local Cache** — 7-day TTL, millisecond response on repeat queries
+- 🔌 **Importable** — `import pricing_tool` for programmatic use, all functions return structured data
+- 🤖 **AI Skill** — Natural language pricing queries with full BOM generation
+
+---
+
+## 🤖 AI Skill Integration
+
+This tool works as an AI Skill for **Kiro CLI** and **Claude Code**, turning AI into your AWS pricing consultant — ask in natural language, get complete BOMs.
+
+### Option A: Kiro CLI
+
+```bash
+# 1. Clone & install
+git clone https://github.com/neosun100/aws-pricing-tool.git ~/Code/aws-pricing-tool
+pip3 install boto3
+
+# 2. Install skill
+mkdir -p ~/.kiro/skills/aws-pricing-query
+cp ~/Code/aws-pricing-tool/SKILL.md ~/.kiro/skills/aws-pricing-query/SKILL.md
+
+# 3. Edit config (update tool path and AWS profile)
+#    Open ~/.kiro/skills/aws-pricing-query/SKILL.md
+#    Change: tool path → /your/path/to/pricing_tool.py
+#    Change: profile  → --profile your-profile
+```
+
+In Kiro, just ask naturally — the skill auto-triggers on pricing keywords:
+```
+👤 How much is c6g.xlarge in Tokyo?
+```
+
+### Option B: Claude Code
+
+```bash
+# 1. Clone & install
+git clone https://github.com/neosun100/aws-pricing-tool.git ~/Code/aws-pricing-tool
+pip3 install boto3
+
+# 2. Install as global slash command
+mkdir -p ~/.claude/commands
+cp ~/Code/aws-pricing-tool/CLAUDE_COMMAND.md ~/.claude/commands/aws-pricing.md
+
+# 3. Edit config (update tool path and AWS profile)
+#    Open ~/.claude/commands/aws-pricing.md
+#    Change: tool path → /your/path/to/pricing_tool.py
+#    Change: profile  → --profile your-profile
+```
+
+In Claude Code, invoke via slash command:
+```
+/user:aws-pricing How much is c6g.xlarge in Tokyo?
+```
+
+### Post-Install Configuration
+
+After installing on either platform, edit the config file and update these two lines:
+
+```yaml
+tool:    /your/path/to/pricing_tool.py   # ← your actual path
+profile: --profile <your-profile>        # ← your AWS profile
+```
+
+### Natural Language Examples
+
+```
+👤 c6g.xlarge in Tokyo?
+🤖 → EC2 pricing: OD + 6 RI options, with Graviton recommendation
+
+👤 2x Aurora MySQL db.r6g.xlarge Tokyo Multi-AZ 500GB
+🤖 → Full BOM: instance + storage + I/O + backup + data transfer
+
+👤 Architecture: 2x c6in.4xlarge + Aurora db.r6g.xlarge + Redis cache.r6g.large Tokyo
+🤖 → Multi-service BOM with optimization suggestions
+
+👤 Compare c6g.xlarge across Tokyo and Virginia
+🤖 → Cross-region comparison, ★ marks cheapest
+
+👤 S3 10TB Standard, 1M GET/month
+🤖 → Usage-based calculation (built-in formulas, no API needed)
+
+👤 When does RI break even?
+🤖 → Break-even analysis + Savings Plans comparison
+```
+
+### Skill Coverage
+
+| Type | Count | Method |
+|------|-------|--------|
+| Instance-based | 19 services | Price List API (real-time) |
+| Usage-based | 15+ services | Built-in formulas (S3/Lambda/DynamoDB/CloudFront etc.) |
+
+Full capabilities: complete BOM, Graviton recommendations, RI break-even analysis, hidden cost alerts, architecture mode, export to Markdown.
+
+### Skill Files
+
+| File | Platform | Description |
+|------|----------|-------------|
+| `SKILL.md` | Kiro CLI | YAML frontmatter with trigger keywords, auto-matches |
+| `CLAUDE_COMMAND.md` | Claude Code | `$ARGUMENTS` placeholder, invoked via `/user:aws-pricing` |
+
+Both files share the same core content (parameter checklists, interaction strategies, reference pricing, BOM templates, optimization advice).
+
+---
+
+## Quick Start
+
+### 1. Install
 
 ```bash
 git clone https://github.com/neosun100/aws-pricing-tool.git && cd aws-pricing-tool
@@ -24,174 +161,276 @@ pip3 install boto3
 python3 pricing_tool.py --help
 ```
 
-### 第 2 步：配置 AWS 凭证
+### 2. Configure AWS Credentials
 
 ```bash
-# 方式 A：AWS Profile（推荐）
+# Option A: AWS Profile (recommended)
 aws configure --profile my-profile
 
-# 方式 B：Isengard（Amazon 内部）
-isengardcli credentials <account> --role <role>
-
-# 方式 C：SSO
+# Option B: SSO
 aws sso login --profile my-profile
 
-# 方式 D：环境变量
+# Option C: Environment variables
 export AWS_ACCESS_KEY_ID=<key>
 export AWS_SECRET_ACCESS_KEY=<secret>
 ```
 
-最小 IAM 权限：
+Minimum IAM permissions:
 ```json
 {
   "Version": "2012-10-17",
-  "Statement": [{"Effect": "Allow", "Action": ["pricing:GetProducts", "pricing:GetAttributeValues", "pricing:DescribeServices"], "Resource": "*"}]
+  "Statement": [{
+    "Effect": "Allow",
+    "Action": ["pricing:GetProducts", "pricing:GetAttributeValues", "pricing:DescribeServices"],
+    "Resource": "*"
+  }]
 }
 ```
 
-### 第 3 步：查询价格
+### 3. Query Pricing
 
 ```bash
-python3 pricing_tool.py --profile my-profile query ec2 -t c6g.xlarge -r 东京
-python3 pricing_tool.py --profile my-profile query rds -t db.r6g.xlarge -r 新加坡 -e aurora-mysql
-python3 pricing_tool.py --profile my-profile compare ec2 -t c6g.xlarge -r "东京,新加坡,弗吉尼亚"
+python3 pricing_tool.py --profile p query ec2 -t c6g.xlarge -r tokyo
+python3 pricing_tool.py --profile p query rds -t db.r6g.xlarge -r singapore -e aurora-mysql
+python3 pricing_tool.py --profile p compare ec2 -t c6g.xlarge -r "tokyo,singapore,virginia"
 ```
 
 ---
 
-## 命令参考
+## Command Reference
 
-### `query` — 查询价格
+### `query` — Single Instance Pricing
 
 ```bash
-python3 pricing_tool.py --profile <p> query <service> -t <type> -r <region> [-e engine] [-d Multi-AZ] [--os Windows] [--json]
+python3 pricing_tool.py --profile <p> query <service> -t <type> -r <region> \
+    [-e engine] [-d Multi-AZ] [--os Windows] [--json] [--csv]
 ```
 
-**19 个服务完整示例：**
+**All 19 services:**
+
+| Category | Service | Example |
+|----------|---------|---------|
+| Compute | `ec2` | `query ec2 -t c6g.xlarge -r tokyo` |
+| Compute | `ec2` (Windows) | `query ec2 -t m6i.xlarge -r tokyo --os Windows` |
+| Database | `rds` (Aurora) | `query rds -t db.r6g.xlarge -r tokyo -e aurora-mysql` |
+| Database | `rds` (Multi-AZ) | `query rds -t db.r6g.large -r tokyo -e mysql -d Multi-AZ` |
+| Cache | `elasticache` | `query elasticache -t cache.r6g.large -r tokyo -e redis` |
+| Search | `opensearch` | `query opensearch -t m6g.large.search -r tokyo` |
+| Data Warehouse | `redshift` | `query redshift -t ra3.xlplus -r tokyo` |
+| Graph DB | `neptune` | `query neptune -t db.r6g.large -r tokyo` |
+| Document DB | `docdb` | `query docdb -t db.r6g.large -r tokyo` |
+| In-Memory DB | `memorydb` | `query memorydb -t db.r6g.large -r tokyo` |
+| Message Queue | `mq` ⚠️ | `query mq -t m5.large -r tokyo` |
+| Cache Accel. | `dax` ⚠️ | `query dax -t r5.large -r tokyo` |
+| ML | `sagemaker` | `query sagemaker -t ml.m5.xlarge -r tokyo` |
+| Big Data | `emr` ⚠️ | `query emr -t m6g.xlarge -r tokyo` |
+| Gaming | `gamelift` | `query gamelift -t c5.large -r tokyo` |
+| Streaming | `appstream` | `query appstream -t stream.standard.large -r tokyo` |
+| Desktop | `workspaces` | `query workspaces -t c5.xlarge -r tokyo` |
+| Container | `ecs` | `query ecs -t t3.medium -r tokyo` |
+| Container | `eks` | `query eks -t t3.medium -r tokyo` |
+| VMware | `evs` | `query evs -t i4i.metal -r tokyo` |
+
+> ⚠️ MQ / DAX / EMR instance types have **no service prefix** — use `m5.large` not `mq.m5.large`
+
+### `batch` — Compare Multiple Types in Same Region
 
 ```bash
-# EC2
-python3 pricing_tool.py --profile p query ec2 -t c6in.4xlarge -r 东京
-python3 pricing_tool.py --profile p query ec2 -t m6i.xlarge -r 东京 --os Windows
-
-# RDS / Aurora
-python3 pricing_tool.py --profile p query rds -t db.r6g.xlarge -r 东京 -e aurora-mysql
-python3 pricing_tool.py --profile p query rds -t db.r6g.large -r 东京 -e mysql -d Multi-AZ
-
-# ElastiCache
-python3 pricing_tool.py --profile p query elasticache -t cache.r6g.large -r 东京 -e redis
-
-# OpenSearch / Redshift
-python3 pricing_tool.py --profile p query opensearch -t m6g.large.search -r 东京
-python3 pricing_tool.py --profile p query redshift -t ra3.xlplus -r 东京
-
-# Neptune / DocumentDB / MemoryDB
-python3 pricing_tool.py --profile p query neptune -t db.r6g.large -r 东京
-python3 pricing_tool.py --profile p query docdb -t db.r6g.large -r 东京
-python3 pricing_tool.py --profile p query memorydb -t db.r6g.large -r 东京
-
-# MQ / DAX（⚠️ 无服务前缀）
-python3 pricing_tool.py --profile p query mq -t m5.large -r 东京
-python3 pricing_tool.py --profile p query dax -t r5.large -r 东京
-
-# SageMaker / EMR（⚠️ EMR 无前缀）
-python3 pricing_tool.py --profile p query sagemaker -t ml.m5.xlarge -r 东京
-python3 pricing_tool.py --profile p query emr -t m6g.xlarge -r 东京
-
-# GameLift / AppStream / WorkSpaces / ECS / EKS / EVS
-python3 pricing_tool.py --profile p query gamelift -t c5.large -r 东京
-python3 pricing_tool.py --profile p query appstream -t stream.standard.large -r 东京
-python3 pricing_tool.py --profile p query workspaces -t c5.xlarge -r 东京
-python3 pricing_tool.py --profile p query ecs -t t3.medium -r 东京
-python3 pricing_tool.py --profile p query eks -t t3.medium -r 东京
-python3 pricing_tool.py --profile p query evs -t i4i.metal -r 东京
+python3 pricing_tool.py --profile p batch ec2 -t "c6g.xlarge,c6g.2xlarge,c6g.4xlarge" -r tokyo
+python3 pricing_tool.py --profile p batch ec2 -t "c6g.xlarge,c6g.2xlarge" -r tokyo --json
 ```
 
-### `batch` — 批量对比
+### `compare` — Cross-Region Comparison (★ marks cheapest)
 
 ```bash
-python3 pricing_tool.py --profile p batch ec2 -t "c6g.xlarge,c6g.2xlarge,c6g.4xlarge" -r 东京
+python3 pricing_tool.py --profile p compare ec2 -t c6in.4xlarge -r "tokyo,singapore,virginia,frankfurt"
+python3 pricing_tool.py --profile p compare ec2 -t c6g.xlarge -r "tokyo,virginia" --csv
 ```
 
-### `compare` — 跨 Region 比价（★ 标注最便宜）
+### `list` — List Available Instance Types for a Region
 
 ```bash
-python3 pricing_tool.py --profile p compare ec2 -t c6in.4xlarge -r "东京,新加坡,弗吉尼亚,法兰克福"
+python3 pricing_tool.py --profile p list ec2 -r tokyo -f c6g
+python3 pricing_tool.py --profile p list rds -r tokyo -f db.r6g --json
 ```
 
-### `list` — 列出可用机型
+> `list` returns region-specific instance types (via `GetProducts` API), not a global list.
+
+### Cache Management
 
 ```bash
-python3 pricing_tool.py --profile p list ec2 -r 东京 -f c6g
-python3 pricing_tool.py --profile p list rds -r 东京 -f db.r6g
+python3 pricing_tool.py cache-info                    # View cache status
+python3 pricing_tool.py refresh                       # Clear all cache
+python3 pricing_tool.py --no-cache query ec2 -t ...   # Skip cache once
 ```
 
-### 缓存管理
+### Output Formats
+
+All query commands (`query`, `batch`, `compare`, `list`) support:
+
+| Format | Flag | Use Case |
+|--------|------|----------|
+| Colored table | _(default)_ | Terminal reading, auto-detects TTY |
+| JSON | `--json` | Programmatic parsing, AI Skill integration |
+| CSV | `--csv` | Import to Excel / Google Sheets |
 
 ```bash
-python3 pricing_tool.py cache-info                    # 查看缓存
-python3 pricing_tool.py refresh                       # 清除缓存
-python3 pricing_tool.py --no-cache query ec2 -t ...   # 跳过缓存
+python3 pricing_tool.py --profile p query ec2 -t c6g.xlarge -r tokyo --json
+python3 pricing_tool.py --profile p compare ec2 -t c6g.xlarge -r "tokyo,virginia" --csv
+python3 pricing_tool.py --version
 ```
 
 ---
 
-## 支持的 Region（34 个，中英文别名）
+## Supported Regions (34)
 
-| 中文 | 英文 | 代码 | | 中文 | 英文 | 代码 |
+Supports Chinese aliases, English aliases, and standard region codes. Case-insensitive.
+
+| Chinese | English | Code | | Chinese | English | Code |
 |:---:|:---:|:---:|---|:---:|:---:|:---:|
 | 弗吉尼亚 | virginia | us-east-1 | | 东京 | tokyo | ap-northeast-1 |
 | 俄亥俄 | ohio | us-east-2 | | 首尔 | seoul | ap-northeast-2 |
+| 加利福尼亚 | california | us-west-1 | | 大阪 | osaka | ap-northeast-3 |
 | 俄勒冈 | oregon | us-west-2 | | 新加坡 | singapore | ap-southeast-1 |
-| 法兰克福 | frankfurt | eu-central-1 | | 香港 | hongkong | ap-east-1 |
-| 爱尔兰 | ireland | eu-west-1 | | 孟买 | mumbai | ap-south-1 |
-| 伦敦 | london | eu-west-2 | | 悉尼 | sydney | ap-southeast-2 |
-| 巴黎 | paris | eu-west-3 | | 雅加达 | jakarta | ap-southeast-3 |
-| 斯德哥尔摩 | stockholm | eu-north-1 | | 大阪 | osaka | ap-northeast-3 |
-| 圣保罗 | saopaulo | sa-east-1 | | 台北 | taipei | ap-east-2 |
-| 加拿大 | canada | ca-central-1 | | 墨尔本 | melbourne | ap-southeast-4 |
-| 巴林 | bahrain | me-south-1 | | 泰国 | thailand | ap-southeast-6 |
-| 开普敦 | capetown | af-south-1 | | 新西兰 | newzealand | ap-southeast-7 |
-
-完整 34 个 Region 均支持，含 苏黎世、米兰、西班牙、卡尔加里、墨西哥、阿联酋、特拉维夫、海得拉巴、马来西亚 等。
+| 加拿大 | canada | ca-central-1 | | 悉尼 | sydney | ap-southeast-2 |
+| 卡尔加里 | calgary | ca-west-1 | | 雅加达 | jakarta | ap-southeast-3 |
+| 圣保罗 | saopaulo | sa-east-1 | | 墨尔本 | melbourne | ap-southeast-4 |
+| 墨西哥 | mexico | mx-central-1 | | 马来西亚 | malaysia | ap-southeast-5 |
+| 法兰克福 | frankfurt | eu-central-1 | | 泰国 | thailand | ap-southeast-6 |
+| 苏黎世 | zurich | eu-central-2 | | 新西兰 | newzealand | ap-southeast-7 |
+| 爱尔兰 | ireland | eu-west-1 | | 香港 | hongkong | ap-east-1 |
+| 伦敦 | london | eu-west-2 | | 台北 | taipei | ap-east-2 |
+| 巴黎 | paris | eu-west-3 | | 孟买 | mumbai | ap-south-1 |
+| 米兰 | milan | eu-south-1 | | 海得拉巴 | hyderabad | ap-south-2 |
+| 西班牙 | spain | eu-south-2 | | 巴林 | bahrain | me-south-1 |
+| 斯德哥尔摩 | stockholm | eu-north-1 | | 阿联酋 | uae | me-central-1 |
+| 开普敦 | capetown | af-south-1 | | 特拉维夫 | telaviv | il-central-1 |
 
 ---
 
-## 实例命名规则
+## Instance Naming Convention
 
 ```
 c6in.4xlarge
-│││  └── 规格: nano < micro < small < medium < large < xlarge < 2xlarge < ... < metal
-││└── 属性: n=网络增强  g=Graviton(ARM)  a=AMD  i=Intel  d=本地SSD
-│└── 代数: 5/6/7（越新越便宜）
-└── 系列: c=计算  m=通用  r=内存  t=突发  i=存储  p/g=GPU
+│││  └── Size: nano < micro < small < medium < large < xlarge < 2xlarge < ... < metal
+││└── Attributes: n=network  g=Graviton(ARM)  a=AMD  i=Intel  d=local-SSD
+│└── Generation: 5/6/7 (newer = cheaper)
+└── Family: c=compute  m=general  r=memory  t=burstable  i=storage  p/g=GPU
 ```
 
-**前缀规则：** EC2 无前缀 | RDS/Neptune/DocDB `db.` | ElastiCache `cache.` | OpenSearch 后缀 `.search` | SageMaker `ml.` | **MQ/DAX/EMR ⚠️ 无前缀**
+**Prefix rules:**
+
+| Service | Prefix | Example |
+|---------|--------|---------|
+| EC2 / GameLift / AppStream / ECS / EKS / EVS | none | `c6g.xlarge` |
+| RDS / Neptune / DocDB | `db.` | `db.r6g.xlarge` |
+| ElastiCache | `cache.` | `cache.r6g.large` |
+| OpenSearch | suffix `.search` | `m6g.large.search` |
+| SageMaker | `ml.` | `ml.m5.xlarge` |
+| MQ / DAX / EMR ⚠️ | none | `m5.large` |
 
 ---
 
-## 使用技巧
+## Tips & Tricks
 
 ```bash
-# Graviton vs x86 比价（ARM 通常便宜 20%）
-python3 pricing_tool.py --profile p query ec2 -t c6i.4xlarge -r 东京
-python3 pricing_tool.py --profile p query ec2 -t c6g.4xlarge -r 东京
+# Graviton vs x86 comparison (ARM is typically 20% cheaper)
+python3 pricing_tool.py --profile p batch ec2 -t "c6i.4xlarge,c6g.4xlarge" -r tokyo
 
-# 找最便宜的 Region
-python3 pricing_tool.py --profile p compare ec2 -t c6g.xlarge -r "弗吉尼亚,爱尔兰,东京,新加坡,孟买"
+# Find the cheapest region
+python3 pricing_tool.py --profile p compare ec2 -t c6g.xlarge \
+    -r "virginia,ireland,tokyo,singapore,mumbai"
 
-# JSON 输出用于程序处理
-python3 pricing_tool.py --profile p query ec2 -t c6g.xlarge -r 东京 --json | python3 -m json.tool
+# JSON output → jq processing
+python3 pricing_tool.py --profile p query ec2 -t c6g.xlarge -r tokyo --json | jq '.[] | .price_per_hour'
+
+# CSV output → Excel
+python3 pricing_tool.py --profile p compare ec2 -t c6g.xlarge \
+    -r "tokyo,singapore,virginia" --csv > compare.csv
+
+# Programmatic usage
+python3 -c "
+from pricing_tool import get_client, query_products, extract_pricing, build_filters, SERVICE_CODES
+from types import SimpleNamespace
+args = SimpleNamespace(region='ap-northeast-1', instance_type='c6g.xlarge', os='Linux',
+                       engine=None, deployment=None)
+client = get_client('my-profile')
+products = query_products(client, SERVICE_CODES['ec2'], build_filters('ec2', args))
+for p in products:
+    r = extract_pricing(p)
+    if r.get('price_per_hour'):
+        print(f'{r[\"instance_type\"]}: \${r[\"price_per_hour\"]:.4f}/hr')
+"
 ```
 
 ---
 
-## 常见问题
+## FAQ
 
-| 问题 | 解决 |
-|------|------|
-| 凭证过期 | `aws sso login` 或 `isengardcli credentials ...` |
-| 查不到机型 | 用 `list` 确认；MQ/DAX/EMR 无前缀 |
-| 价格不一致 | 确认 Region/OS/部署模式；用 `--no-cache` |
-| 查 Spot 价格 | `aws ec2 describe-spot-price-history --instance-types ...` |
+| Problem | Solution |
+|---------|----------|
+| Credentials expired | `aws sso login --profile <p>` to re-authenticate |
+| Instance type not found | Use `list` to check availability; note MQ/DAX/EMR have no prefix |
+| Price mismatch | Verify Region / OS / deployment mode (Single-AZ vs Multi-AZ); use `--no-cache` |
+| Spot pricing | Not supported; use `aws ec2 describe-spot-price-history --instance-types ...` |
+| Cache too large | `python3 pricing_tool.py refresh` to clear all cache |
+
+---
+
+## Development
+
+### Project Structure
+
+```
+aws-pricing-tool/
+├── pricing_tool.py    # Main program (single file, standalone)
+├── SKILL.md           # Kiro Skill definition (template)
+├── CLAUDE_COMMAND.md  # Claude Code slash command (template)
+├── conftest.py        # Test fixtures (mock AWS API responses)
+├── test_unit.py       # Unit tests (55)
+├── test_e2e.py        # End-to-end tests (22)
+├── logo.png           # Project logo
+├── README.md          # This document (English)
+├── README_CN.md       # Chinese documentation
+└── .gitignore
+```
+
+### Running Tests
+
+```bash
+pip3 install pytest
+python3 -m pytest -v                    # Run all 77 tests
+python3 -m pytest test_unit.py -v       # Unit tests only
+python3 -m pytest test_e2e.py -v        # E2E tests only
+python3 -m pytest -k "extract_pricing"  # Filter by name
+```
+
+Test coverage:
+
+| File | Tests | Coverage |
+|------|-------|----------|
+| `test_unit.py` | 55 | Region resolution, cache R/W, pricing extraction (OD + 6 RI), dedup/sort, formatting, 19 service filters, JSON/CSV output, color |
+| `test_e2e.py` | 22 | CLI arg parsing, --version/--help, query/batch/compare/list JSON/CSV/table output, cache commands, error handling |
+
+E2E tests invoke the real CLI via subprocess with a mock runner injecting simulated API responses — no AWS credentials needed.
+
+### Tech Stack
+
+- Python 3.8+ (no dependencies beyond `boto3`)
+- AWS Price List API (`us-east-1` endpoint)
+- Local JSON file cache (`~/.cache/aws-pricing/`, 7-day TTL)
+
+---
+
+## Changelog
+
+| Version | Date | Changes |
+|---------|------|---------|
+| v1.2.0 | 2025-02-27 | `--json`/`--csv` on all commands; colored terminal output; region-specific `list`; `--version`; 19 service filters; 3yr_No_Upfront RI fix; 77 tests |
+| v1.0.0 | 2025-02-25 | Initial release: 19 services × 34 regions, query/batch/compare/list, local cache |
+
+---
+
+## License
+
+MIT
