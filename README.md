@@ -56,6 +56,10 @@ python3 pricing_tool.py --profile <your-profile> query ec2 -t c6g.xlarge -r toky
 
 This tool works as an AI Skill for **Kiro CLI** and **Claude Code**, turning AI into your AWS pricing consultant — ask in natural language, get complete BOMs.
 
+### 📺 Video Tutorial
+
+<video src="aws-pricing-skill-tutorial-v2.mp4" controls width="100%"></video>
+
 ### Option A: Kiro CLI
 
 ```bash
