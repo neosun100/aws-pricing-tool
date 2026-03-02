@@ -34,7 +34,7 @@ python3 pricing_tool.py --profile <your-profile> query ec2 -t c6g.xlarge -r 东�
 
 ### 📺 视频教程
 
-![视频教程](aws-pricing-skill-tutorial-v2.mp4)
+![视频教程](aws-pricing-skill-tutorial-v3.mp4)
 
 ### 安装方式 A：Kiro CLI
 

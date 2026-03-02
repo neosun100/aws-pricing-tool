@@ -58,7 +58,7 @@ This tool works as an AI Skill for **Kiro CLI** and **Claude Code**, turning AI 
 
 ### 📺 Video Tutorial
 
-![Video Tutorial](aws-pricing-skill-tutorial-v2.mp4)
+![Video Tutorial](aws-pricing-skill-tutorial-v3.mp4)
 
 ### Option A: Kiro CLI
 
