@@ -10,7 +10,7 @@ English | [中文](README_CN.md)
   <img src="https://img.shields.io/badge/python-3.8+-blue.svg" alt="Python 3.8+">
   <img src="https://img.shields.io/badge/services-19-orange.svg" alt="19 Services">
   <img src="https://img.shields.io/badge/regions-34-green.svg" alt="34 Regions">
-  <img src="https://img.shields.io/badge/tests-93%20passed-brightgreen.svg" alt="93 Tests">
+  <img src="https://img.shields.io/badge/tests-113%20passed-brightgreen.svg" alt="113 Tests">
   <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License">
 </p>
 
@@ -18,7 +18,7 @@ English | [中文](README_CN.md)
 
 ```bash
 pip3 install boto3
-python3 pricing_tool.py --version                                              # v1.3.0
+python3 pricing_tool.py --version                                              # v1.5.0
 python3 pricing_tool.py --profile <your-profile> query ec2 -t c6g.xlarge -r tokyo
 ```
 
@@ -49,6 +49,59 @@ python3 pricing_tool.py --profile <your-profile> query ec2 -t c6g.xlarge -r toky
 - ⚡ **Local Cache** — 7-day TTL, millisecond response on repeat queries
 - 🔌 **Importable** — `import pricing_tool` for programmatic use, all functions return structured data
 - 🤖 **AI Skill** — Natural language pricing queries with full BOM generation
+
+---
+
+## 🔌 MCP Server (Recommended)
+
+The most powerful integration — works with **all MCP-compatible clients** (Kiro, Claude Code, OpenClaw, Cursor, VS Code, etc.) via a single configuration.
+
+### Install & Run
+
+```bash
+pip3 install boto3 fastmcp
+python3 mcp_server.py   # Starts MCP server (stdio mode)
+```
+
+### Configure Your MCP Client
+
+Add to your MCP client config (e.g. `~/.kiro/settings/mcp.json`, `.claude/settings/mcp.json`, or `openclaw.json`):
+
+```json
+{
+  "mcpServers": {
+    "aws-pricing-tool": {
+      "command": "python3",
+      "args": ["/your/path/to/mcp_server.py"],
+      "env": {
+        "AWS_PROFILE": "your-profile"
+      }
+    }
+  }
+}
+```
+
+### Available MCP Tools (6)
+
+| Tool | Description |
+|------|-------------|
+| `query_pricing` | Query pricing for a single instance type (OD + 6 RI options) |
+| `compare_regions` | Compare same type across multiple regions (★ cheapest) |
+| `batch_compare` | Compare multiple types in same region |
+| `list_types` | List available instance types (with optional filter) |
+| `get_regions` | List all 34 supported regions |
+| `get_services` | List all 19 supported services |
+
+### MCP vs AI Skill
+
+| | MCP Server | AI Skill (SKILL.md) |
+|---|---|---|
+| Integration | Universal (any MCP client) | Platform-specific |
+| I/O | Structured JSON | Text parsing |
+| Setup | One config for all platforms | One file per platform |
+| Tool discovery | Automatic | Manual |
+
+> 💡 **MCP Server is recommended** for new setups. AI Skills (below) remain available for backward compatibility.
 
 ---
 
@@ -418,6 +471,7 @@ for p in products:
 ```
 aws-pricing-tool/
 ├── pricing_tool.py    # Main program (single file, standalone)
+├── mcp_server.py      # MCP Server (6 tools, works with all MCP clients)
 ├── SKILL.md           # Kiro Skill definition (template)
 ├── CLAUDE_COMMAND.md  # Claude Code slash command (template)
 ├── openclaw-skill/    # OpenClaw skill (skill.md + index.js)
@@ -426,6 +480,7 @@ aws-pricing-tool/
 ├── conftest.py        # Test fixtures (mock AWS API responses)
 ├── test_unit.py       # Unit tests (66)
 ├── test_e2e.py        # End-to-end tests (27)
+├── test_mcp.py        # MCP Server tests (20)
 ├── logo.png           # Project logo
 ├── README.md          # This document (English)
 ├── README_CN.md       # Chinese documentation
@@ -463,6 +518,7 @@ E2E tests invoke the real CLI via subprocess with a mock runner injecting simula
 
 | Version | Date | Changes |
 |---------|------|---------|
+| v1.5.0 | 2025-03-13 | MCP Server (`mcp_server.py`) with 6 tools; works with Kiro/Claude Code/OpenClaw/Cursor/VS Code; 113 tests (20 MCP + 93 original) |
 | v1.3.0 | 2025-03-12 | OpenClaw skill support (`openclaw-skill/`); 3-platform AI Skill (Kiro + Claude Code + OpenClaw); `.gitignore` hardened for sensitive files |
 | v1.2.0 | 2025-02-27 | `--json`/`--csv` on all commands; colored terminal output; region-specific `list`; `--version`; 19 service filters; 3yr_No_Upfront RI fix; `regions` command; 93 tests |
 | v1.0.0 | 2025-02-25 | Initial release: 19 services × 34 regions, query/batch/compare/list, local cache |

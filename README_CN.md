@@ -10,7 +10,7 @@
 
 ```bash
 pip3 install boto3
-python3 pricing_tool.py --version                                          # v1.3.0
+python3 pricing_tool.py --version                                          # v1.5.0
 python3 pricing_tool.py --profile <your-profile> query ec2 -t c6g.xlarge -r 东京
 ```
 
@@ -400,6 +400,7 @@ for p in products:
 ```
 aws-pricing-tool/
 ├── pricing_tool.py    # 主程序（单文件，可独立运行）
+├── mcp_server.py      # MCP Server（6 个工具，适配所有 MCP 客户端）
 ├── SKILL.md           # Kiro Skill 定义文件（模板，需配置路径和 Profile）
 ├── CLAUDE_COMMAND.md  # Claude Code Slash Command 文件（模板）
 ├── openclaw-skill/    # OpenClaw Skill（skill.md + index.js）
@@ -408,6 +409,7 @@ aws-pricing-tool/
 ├── conftest.py        # 测试 fixtures（模拟 AWS API 响应）
 ├── test_unit.py       # 单元测试（66 个）
 ├── test_e2e.py        # 端到端测试（27 个）
+├── test_mcp.py        # MCP Server 测试（20 个）
 ├── logo.png           # 项目 Logo
 ├── README.md          # 英文文档
 ├── README_CN.md       # 中文文档
@@ -445,6 +447,7 @@ E2E 测试通过 subprocess 调用真实 CLI，使用 mock runner 注入模拟 A
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
+| v1.5.0 | 2025-03-13 | MCP Server（`mcp_server.py`）6 个工具；支持 Kiro/Claude Code/OpenClaw/Cursor/VS Code；113 个测试（20 MCP + 93 原有） |
 | v1.3.0 | 2025-03-12 | OpenClaw skill 支持（`openclaw-skill/`）；3 平台 AI Skill（Kiro + Claude Code + OpenClaw）；`.gitignore` 增强敏感文件过滤 |
 | v1.2.0 | 2025-02-27 | 全命令 `--json`/`--csv` 输出；终端彩色；`list` 按 Region 过滤；`--version`；19 服务 filter 补全；3yr_No_Upfront RI 修复；`regions` 命令；93 个测试 |
 | v1.0.0 | 2025-02-25 | 初始版本：19 服务 × 34 Region，query/batch/compare/list，本地缓存 |
