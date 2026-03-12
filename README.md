@@ -54,7 +54,7 @@ python3 pricing_tool.py --profile <your-profile> query ec2 -t c6g.xlarge -r toky
 
 ## 🤖 AI Skill Integration
 
-This tool works as an AI Skill for **Kiro CLI** and **Claude Code**, turning AI into your AWS pricing consultant — ask in natural language, get complete BOMs.
+This tool works as an AI Skill for **Kiro CLI**, **Claude Code**, and **OpenClaw**, turning AI into your AWS pricing consultant — ask in natural language, get complete BOMs.
 
 ### 📺 Video Tutorial
 
@@ -104,9 +104,31 @@ In Claude Code, invoke via slash command:
 /user:aws-pricing How much is c6g.xlarge in Tokyo?
 ```
 
+### Option C: OpenClaw
+
+```bash
+# 1. Clone & install
+git clone https://github.com/neosun100/aws-pricing-tool.git ~/Code/aws-pricing-tool
+pip3 install boto3
+
+# 2. Install skill
+cp -r ~/Code/aws-pricing-tool/openclaw-skill ~/.openclaw/skills/aws-pricing-query
+
+# 3. Edit config (update tool path and AWS profile)
+#    Open ~/.openclaw/skills/aws-pricing-query/skill.md
+#    Change: tool path → /your/path/to/pricing_tool.py
+#    Change: profile  → --profile your-profile
+#    Also update TOOL_PATH and AWS_PROFILE in index.js
+```
+
+In OpenClaw, just ask naturally:
+```
+👤 How much is c6g.xlarge in Tokyo?
+```
+
 ### Post-Install Configuration
 
-After installing on either platform, edit the config file and update these two lines:
+After installing on any platform, edit the config file and update these two lines:
 
 ```yaml
 tool:    /your/path/to/pricing_tool.py   # ← your actual path
@@ -150,8 +172,9 @@ Full capabilities: complete BOM, Graviton recommendations, RI break-even analysi
 |------|----------|-------------|
 | `SKILL.md` | Kiro CLI | YAML frontmatter with trigger keywords, auto-matches |
 | `CLAUDE_COMMAND.md` | Claude Code | `$ARGUMENTS` placeholder, invoked via `/user:aws-pricing` |
+| `openclaw-skill/` | OpenClaw | `skill.md` + `index.js`, installed to `~/.openclaw/skills/` |
 
-Both files share the same core content (parameter checklists, interaction strategies, reference pricing, BOM templates, optimization advice).
+All files share the same core content (parameter checklists, interaction strategies, reference pricing, BOM templates, optimization advice).
 
 ---
 
@@ -397,6 +420,9 @@ aws-pricing-tool/
 ├── pricing_tool.py    # Main program (single file, standalone)
 ├── SKILL.md           # Kiro Skill definition (template)
 ├── CLAUDE_COMMAND.md  # Claude Code slash command (template)
+├── openclaw-skill/    # OpenClaw skill (skill.md + index.js)
+│   ├── skill.md       # OpenClaw skill specification
+│   └── index.js       # OpenClaw skill entry point
 ├── conftest.py        # Test fixtures (mock AWS API responses)
 ├── test_unit.py       # Unit tests (66)
 ├── test_e2e.py        # End-to-end tests (27)
