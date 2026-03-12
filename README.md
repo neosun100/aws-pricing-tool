@@ -18,7 +18,7 @@ English | [中文](README_CN.md)
 
 ```bash
 pip3 install boto3
-python3 pricing_tool.py --version                                              # v1.2.0
+python3 pricing_tool.py --version                                              # v1.3.0
 python3 pricing_tool.py --profile <your-profile> query ec2 -t c6g.xlarge -r tokyo
 ```
 

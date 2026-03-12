@@ -13,7 +13,7 @@ make test
 ## Running Tests
 
 ```bash
-make test          # All 77+ tests
+make test          # All 93 tests
 make lint          # Syntax check
 ```
 
@@ -37,7 +37,15 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/):
 
 ## Skill Files
 
-`SKILL.md` is the single source of truth. After editing it, run:
+Three AI Skill platforms are supported:
+
+| File | Platform | Notes |
+|------|----------|-------|
+| `SKILL.md` | Kiro CLI | Single source of truth |
+| `CLAUDE_COMMAND.md` | Claude Code | Generated from SKILL.md |
+| `openclaw-skill/` | OpenClaw | `skill.md` + `index.js` |
+
+After editing `SKILL.md`, run:
 
 ```bash
 make skill    # Regenerates CLAUDE_COMMAND.md from SKILL.md

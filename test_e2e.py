@@ -22,7 +22,7 @@ class TestCLIBasic:
     def test_version(self):
         out, _, rc = run("--version")
         assert rc == 0
-        assert "1.2.0" in out
+        assert "1.3.0" in out
 
     def test_help(self):
         out, _, rc = run("--help")
