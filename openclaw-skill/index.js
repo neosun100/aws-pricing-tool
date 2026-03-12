@@ -20,7 +20,14 @@ export async function execute(inputs, context) {
   try {
     const result = await context.shell.exec(cmd, { timeout: 30000 });
     if (result.exitCode !== 0) {
-      return { text: `Pricing query failed: ${result.stderr || result.stdout}`, error: true };
+      const errMsg = result.stderr || result.stdout;
+      if (errMsg.includes('ExpiredToken') || errMsg.includes('InvalidClientTokenId')) {
+        return {
+          text: `AWS credentials expired. Run: aws sso login --profile ${AWS_PROFILE}\nThen retry your query.`,
+          error: true,
+        };
+      }
+      return { text: `Pricing query failed: ${errMsg}`, error: true };
     }
 
     // Try to parse JSON output

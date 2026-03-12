@@ -107,8 +107,8 @@ OpenClaw 中直接用自然语言查价：
 无论哪个平台，安装后都需要编辑对应文件，修改以下两行：
 
 ```yaml
-工具: /Users/<你的用户名>/Code/aws-pricing-tool/pricing_tool.py   # ← 改为你的实际路径
-凭证: --profile <your-profile>                                     # ← 改为你的 AWS Profile
+工具: /your/path/to/pricing_tool.py   # ← 改为你的实际路径
+凭证: --profile <your-profile>        # ← 改为你的 AWS Profile
 ```
 
 ### 自然语言使用示例
@@ -445,5 +445,6 @@ E2E 测试通过 subprocess 调用真实 CLI，使用 mock runner 注入模拟 A
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
+| v1.3.0 | 2025-03-12 | OpenClaw skill 支持（`openclaw-skill/`）；3 平台 AI Skill（Kiro + Claude Code + OpenClaw）；`.gitignore` 增强敏感文件过滤 |
 | v1.2.0 | 2025-02-27 | 全命令 `--json`/`--csv` 输出；终端彩色；`list` 按 Region 过滤；`--version`；19 服务 filter 补全；3yr_No_Upfront RI 修复；`regions` 命令；93 个测试 |
 | v1.0.0 | 2025-02-25 | 初始版本：19 服务 × 34 Region，query/batch/compare/list，本地缓存 |

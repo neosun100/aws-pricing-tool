@@ -1,6 +1,7 @@
 ---
 name: aws-pricing-query
 version: 1.0.0
+emoji: 💰
 description: "Query real-time AWS pricing for 19 instance-based services across 34 regions. Supports EC2, RDS, Aurora, ElastiCache, OpenSearch, Redshift, Neptune, DocumentDB, MemoryDB, MQ, DAX, SageMaker, EMR, GameLift, AppStream, WorkSpaces, ECS, EKS, EVS. Returns On-Demand + 6 RI options. Also calculates usage-based services (S3, Lambda, DynamoDB, CloudFront, etc.) via built-in formulas."
 author: neosun100
 license: MIT
@@ -41,6 +42,17 @@ tags:
   - cloud
   - cost-optimization
   - devops
+
+outputs:
+  - name: text
+    type: string
+    description: "Formatted pricing result text for display"
+  - name: data
+    type: object
+    description: "Structured pricing data (JSON) for programmatic use"
+  - name: error
+    type: boolean
+    description: "Whether the query encountered an error"
 
 minOpenClawVersion: "2.1.0"
 ---

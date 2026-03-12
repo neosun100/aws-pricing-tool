@@ -463,6 +463,7 @@ E2E tests invoke the real CLI via subprocess with a mock runner injecting simula
 
 | Version | Date | Changes |
 |---------|------|---------|
+| v1.3.0 | 2025-03-12 | OpenClaw skill support (`openclaw-skill/`); 3-platform AI Skill (Kiro + Claude Code + OpenClaw); `.gitignore` hardened for sensitive files |
 | v1.2.0 | 2025-02-27 | `--json`/`--csv` on all commands; colored terminal output; region-specific `list`; `--version`; 19 service filters; 3yr_No_Upfront RI fix; `regions` command; 93 tests |
 | v1.0.0 | 2025-02-25 | Initial release: 19 services × 34 regions, query/batch/compare/list, local cache |
 
