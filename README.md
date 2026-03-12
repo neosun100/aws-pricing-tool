@@ -102,6 +102,8 @@ Add to your MCP client config (e.g. `~/.kiro/settings/mcp.json`, `.claude/settin
 | Tool discovery | Automatic | Manual |
 
 > 💡 **MCP Server is recommended** for new setups. AI Skills (below) remain available for backward compatibility.
+>
+> 📊 **vs AWS Official MCP Server**: Our tool is a "pricing consultant" (BOM, Graviton, RI analysis, Chinese aliases, local cache), while the official tool is a "pricing engine" (CDK/Terraform scan, bulk download). They complement each other — see [COMPARISON.md](COMPARISON.md) for details.
 
 ---
 
