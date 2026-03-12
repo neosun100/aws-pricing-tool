@@ -4,7 +4,7 @@
 import argparse, csv, hashlib, io, json, os, sys, time
 import boto3
 
-__version__ = "1.5.0"
+__version__ = "2.0.0"
 PRICING_REGION = "us-east-1"
 CACHE_DIR = os.path.expanduser("~/.cache/aws-pricing")
 CACHE_TTL = 7 * 86400  # 7 days

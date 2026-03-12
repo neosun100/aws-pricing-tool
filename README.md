@@ -10,7 +10,7 @@ English | [中文](README_CN.md)
   <img src="https://img.shields.io/badge/python-3.8+-blue.svg" alt="Python 3.8+">
   <img src="https://img.shields.io/badge/services-19-orange.svg" alt="19 Services">
   <img src="https://img.shields.io/badge/regions-34-green.svg" alt="34 Regions">
-  <img src="https://img.shields.io/badge/tests-113%20passed-brightgreen.svg" alt="113 Tests">
+  <img src="https://img.shields.io/badge/tests-133%20passed-brightgreen.svg" alt="133 Tests">
   <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License">
 </p>
 
@@ -18,7 +18,7 @@ English | [中文](README_CN.md)
 
 ```bash
 pip3 install boto3
-python3 pricing_tool.py --version                                              # v1.5.0
+python3 pricing_tool.py --version                                              # v2.0.0
 python3 pricing_tool.py --profile <your-profile> query ec2 -t c6g.xlarge -r tokyo
 ```
 
@@ -81,7 +81,7 @@ Add to your MCP client config (e.g. `~/.kiro/settings/mcp.json`, `.claude/settin
 }
 ```
 
-### Available MCP Tools (6)
+### Available MCP Tools (10)
 
 | Tool | Description |
 |------|-------------|
@@ -91,6 +91,10 @@ Add to your MCP client config (e.g. `~/.kiro/settings/mcp.json`, `.claude/settin
 | `list_types` | List available instance types (with optional filter) |
 | `get_regions` | List all 34 supported regions |
 | `get_services` | List all 19 supported services |
+| `graviton_recommend` | 🆕 Recommend Graviton ARM alternative with savings calculation |
+| `ri_analysis` | 🆕 RI break-even analysis (6 options with upfront/monthly/breakeven) |
+| `calculate_s3` | 🆕 S3 cost calculator (7 storage classes, egress, requests) |
+| `calculate_lambda` | 🆕 Lambda cost calculator (free tier, x86 vs ARM) |
 
 ### MCP vs AI Skill
 
@@ -482,7 +486,7 @@ aws-pricing-tool/
 ├── conftest.py        # Test fixtures (mock AWS API responses)
 ├── test_unit.py       # Unit tests (66)
 ├── test_e2e.py        # End-to-end tests (27)
-├── test_mcp.py        # MCP Server tests (20)
+├── test_mcp.py        # MCP Server tests (40)
 ├── logo.png           # Project logo
 ├── README.md          # This document (English)
 ├── README_CN.md       # Chinese documentation
@@ -520,6 +524,7 @@ E2E tests invoke the real CLI via subprocess with a mock runner injecting simula
 
 | Version | Date | Changes |
 |---------|------|---------|
+| v2.0.0 | 2025-03-13 | MCP Server upgraded to 10 tools: +`graviton_recommend` +`ri_analysis` +`calculate_s3` +`calculate_lambda`; 133 tests (40 MCP + 93 original); "pricing consultant" capabilities now callable via MCP |
 | v1.5.0 | 2025-03-13 | MCP Server (`mcp_server.py`) with 6 tools; works with Kiro/Claude Code/OpenClaw/Cursor/VS Code; 113 tests (20 MCP + 93 original) |
 | v1.3.0 | 2025-03-12 | OpenClaw skill support (`openclaw-skill/`); 3-platform AI Skill (Kiro + Claude Code + OpenClaw); `.gitignore` hardened for sensitive files |
 | v1.2.0 | 2025-02-27 | `--json`/`--csv` on all commands; colored terminal output; region-specific `list`; `--version`; 19 service filters; 3yr_No_Upfront RI fix; `regions` command; 93 tests |

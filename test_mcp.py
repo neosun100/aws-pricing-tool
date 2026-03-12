@@ -6,6 +6,8 @@ from unittest.mock import patch, MagicMock
 from mcp_server import (
     mcp, _query_pricing, _compare_regions, _batch_compare,
     _list_types, _get_regions, _get_services,
+    _graviton_recommend, _ri_analysis, _calculate_s3, _calculate_lambda,
+    _suggest_graviton, GRAVITON_MAP, S3_PRICING,
 )
 import pricing_tool as pt
 from conftest import EC2_PRODUCT
@@ -13,13 +15,14 @@ from conftest import EC2_PRODUCT
 
 class TestToolRegistration:
     def test_tool_count(self):
-        assert len(mcp._tool_manager._tools) == 6
+        assert len(mcp._tool_manager._tools) == 10
 
     def test_tool_names(self):
         names = set(mcp._tool_manager._tools.keys())
         assert names == {
             "query_pricing", "compare_regions", "batch_compare",
             "list_types", "get_regions", "get_services",
+            "graviton_recommend", "ri_analysis", "calculate_s3", "calculate_lambda",
         }
 
 
@@ -146,3 +149,120 @@ class TestListTypes:
     def test_invalid_service(self):
         result = _list_types("bad", "tokyo")
         assert any("Unknown" in str(r) for r in result)
+
+
+# ── v2.0 new tools ─────────────────────────────────────────────
+
+class TestSuggestGraviton:
+    def test_x86_to_arm(self):
+        assert _suggest_graviton("c6i.xlarge") == "c7g.xlarge"
+        assert _suggest_graviton("m5.2xlarge") == "m6g.2xlarge"
+        assert _suggest_graviton("t3.medium") == "t4g.medium"
+
+    def test_db_prefix(self):
+        assert _suggest_graviton("db.r5.large") == "db.r6g.large"
+        assert _suggest_graviton("db.m6i.xlarge") == "db.m6g.xlarge"
+
+    def test_cache_prefix(self):
+        assert _suggest_graviton("cache.r5.large") == "cache.r6g.large"
+
+    def test_already_graviton(self):
+        assert _suggest_graviton("c6g.xlarge") is None
+        assert _suggest_graviton("m7g.large") is None
+
+    def test_unknown_type(self):
+        assert _suggest_graviton("p4d.24xlarge") is None
+
+
+class TestGravitonRecommend:
+    @patch("mcp_server._get_client")
+    def test_with_x86(self, mock_client):
+        mock_client.return_value = MagicMock()
+        with patch("pricing_tool.query_products", return_value=[EC2_PRODUCT]):
+            result = _graviton_recommend("ec2", "c6i.xlarge", "tokyo")
+            assert "x86_type" in result
+            assert "graviton_type" in result
+            assert "saving_percent" in result
+
+    def test_already_graviton(self):
+        result = _graviton_recommend("ec2", "c6g.xlarge", "tokyo")
+        assert result.get("is_graviton") is True
+
+
+class TestRiAnalysis:
+    @patch("mcp_server._get_client")
+    def test_basic(self, mock_client):
+        mock_client.return_value = MagicMock()
+        with patch("pricing_tool.query_products", return_value=[EC2_PRODUCT]):
+            result = _ri_analysis("ec2", "c6g.xlarge", "tokyo")
+            assert "on_demand_hourly" in result
+            assert "on_demand_monthly" in result
+            assert "options" in result
+            assert isinstance(result["options"], list)
+
+    @patch("mcp_server._get_client")
+    def test_options_have_breakeven(self, mock_client):
+        mock_client.return_value = MagicMock()
+        with patch("pricing_tool.query_products", return_value=[EC2_PRODUCT]):
+            result = _ri_analysis("ec2", "c6g.xlarge", "tokyo")
+            for opt in result["options"]:
+                assert "plan" in opt
+                assert "saving_vs_od_percent" in opt
+                assert "breakeven_months" in opt
+
+    def test_invalid_service(self):
+        result = _ri_analysis("bad", "c6g.xlarge", "tokyo")
+        assert isinstance(result, list)
+        assert "error" in result[0]
+
+
+class TestCalculateS3:
+    def test_standard(self):
+        result = _calculate_s3(1000, "Standard", 100000, 1000000, 50)
+        assert result["storage_cost"] == 23.0
+        assert result["total_monthly"] > 0
+        assert "total_yearly" in result
+
+    def test_glacier(self):
+        result = _calculate_s3(10000, "Glacier Deep Archive")
+        assert result["storage_cost"] == 9.9
+        assert result["total_monthly"] == 9.9
+
+    def test_egress_free_tier(self):
+        result = _calculate_s3(100, "Standard", egress_gb=50)
+        assert result["egress_cost"] == 0  # under 100GB free
+
+    def test_egress_paid(self):
+        result = _calculate_s3(100, "Standard", egress_gb=200)
+        assert result["egress_cost"] == 9.0  # (200-100)*0.09
+
+    def test_invalid_class(self):
+        result = _calculate_s3(100, "BadClass")
+        assert "error" in result
+
+    def test_zero_storage(self):
+        result = _calculate_s3(0, "Standard")
+        assert result["total_monthly"] == 0
+
+
+class TestCalculateLambda:
+    def test_basic(self):
+        result = _calculate_lambda(10_000_000, 200, 256, "x86")
+        assert result["total_monthly"] > 0
+        assert result["gb_seconds"] > 0
+
+    def test_free_tier(self):
+        result = _calculate_lambda(500_000, 100, 128, "x86")
+        assert result["total_monthly"] == 0  # under free tier
+
+    def test_arm_cheaper(self):
+        x86 = _calculate_lambda(50_000_000, 500, 512, "x86")
+        arm = _calculate_lambda(50_000_000, 500, 512, "arm")
+        assert arm["total_monthly"] < x86["total_monthly"]
+
+    def test_structure(self):
+        result = _calculate_lambda(1_000_000, 100, 128)
+        assert "invocations" in result
+        assert "gb_seconds" in result
+        assert "request_cost" in result
+        assert "compute_cost" in result
