@@ -420,7 +420,7 @@ aws-pricing-tool/
 
 ```bash
 pip3 install pytest
-python3 -m pytest -v                    # 运行全部 93 个测试
+python3 -m pytest -v                    # 运行全部 133 个测试
 python3 -m pytest test_unit.py -v       # 仅单元测试
 python3 -m pytest test_e2e.py -v        # 仅 E2E 测试
 python3 -m pytest -k "extract_pricing"  # 按名称过滤
@@ -432,6 +432,7 @@ python3 -m pytest -k "extract_pricing"  # 按名称过滤
 |------|--------|----------|
 | `test_unit.py` | 66 | Region 解析、缓存读写、价格提取（OD + 6 RI）、去重排序、格式化、19 服务 filter、JSON/CSV 输出、颜色 |
 | `test_e2e.py` | 27 | CLI 参数解析、--version/--help、query/batch/compare/list 全命令 JSON/CSV/表格输出、缓存命令、错误处理 |
+| `test_mcp.py` | 40 | MCP 工具注册、查价/比价/批量/列表、Graviton 映射与推荐、RI 回本分析、S3 计算器（7 类存储）、Lambda 计算器（免费额度、ARM vs x86） |
 
 E2E 测试通过 subprocess 调用真实 CLI，使用 mock runner 注入模拟 API 响应，无需 AWS 凭证。
 

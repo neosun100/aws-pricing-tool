@@ -497,7 +497,7 @@ aws-pricing-tool/
 
 ```bash
 pip3 install pytest
-python3 -m pytest -v                    # Run all 93 tests
+python3 -m pytest -v                    # Run all 133 tests
 python3 -m pytest test_unit.py -v       # Unit tests only
 python3 -m pytest test_e2e.py -v        # E2E tests only
 python3 -m pytest -k "extract_pricing"  # Filter by name
@@ -509,6 +509,7 @@ Test coverage:
 |------|-------|----------|
 | `test_unit.py` | 66 | Region resolution, cache R/W, pricing extraction (OD + 6 RI), dedup/sort, formatting, 19 service filters, JSON/CSV output, color |
 | `test_e2e.py` | 27 | CLI arg parsing, --version/--help, query/batch/compare/list JSON/CSV/table output, cache commands, error handling |
+| `test_mcp.py` | 40 | MCP tool registration, query/compare/batch/list, Graviton mapping & recommendation, RI break-even analysis, S3 calculator (7 classes), Lambda calculator (free tier, ARM vs x86) |
 
 E2E tests invoke the real CLI via subprocess with a mock runner injecting simulated API responses — no AWS credentials needed.
 
