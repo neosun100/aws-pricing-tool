@@ -7,7 +7,8 @@ from mcp_server import (
     mcp, _query_pricing, _compare_regions, _batch_compare,
     _list_types, _get_regions, _get_services,
     _graviton_recommend, _ri_analysis, _calculate_s3, _calculate_lambda,
-    _suggest_graviton, GRAVITON_MAP, S3_PRICING,
+    _calculate_bedrock, _list_bedrock_models,
+    _suggest_graviton, GRAVITON_MAP, S3_PRICING, BEDROCK_PRICING,
 )
 import pricing_tool as pt
 from conftest import EC2_PRODUCT
@@ -15,7 +16,7 @@ from conftest import EC2_PRODUCT
 
 class TestToolRegistration:
     def test_tool_count(self):
-        assert len(mcp._tool_manager._tools) == 10
+        assert len(mcp._tool_manager._tools) == 12
 
     def test_tool_names(self):
         names = set(mcp._tool_manager._tools.keys())
@@ -23,6 +24,7 @@ class TestToolRegistration:
             "query_pricing", "compare_regions", "batch_compare",
             "list_types", "get_regions", "get_services",
             "graviton_recommend", "ri_analysis", "calculate_s3", "calculate_lambda",
+            "calculate_bedrock", "list_bedrock_models",
         }
 
 
@@ -297,3 +299,76 @@ class TestCalculateLambda:
         assert "gb_seconds" in result
         assert "request_cost" in result
         assert "compute_cost" in result
+
+
+class TestCalculateBedrock:
+    def test_exact_model(self):
+        result = _calculate_bedrock("nova-pro", 1_000_000, 500_000)
+        assert result["model"] == "nova-pro"
+        assert result["provider"] == "Amazon"
+        assert result["input_cost"] == 0.8
+        assert result["output_cost"] == 1.6
+        assert result["total_cost"] == 2.4
+
+    def test_fuzzy_match(self):
+        result = _calculate_bedrock("claude-3.5-sonnet", 1_000_000, 100_000)
+        assert result["provider"] == "Anthropic"
+        assert result["total_cost"] > 0
+
+    def test_partial_match(self):
+        result = _calculate_bedrock("deepseek", 1_000_000, 1_000_000)
+        assert result["provider"] == "DeepSeek"
+
+    def test_unknown_model(self):
+        result = _calculate_bedrock("nonexistent-model-xyz", 1000, 1000)
+        assert "error" in result
+
+    def test_tier_standard(self):
+        std = _calculate_bedrock("nova-pro", 1_000_000, 0, "standard")
+        assert std["input_price_per_1m"] == 0.8
+
+    def test_tier_priority(self):
+        pri = _calculate_bedrock("nova-pro", 1_000_000, 0, "priority")
+        assert pri["input_price_per_1m"] == 1.4  # 0.8 * 1.75
+
+    def test_tier_flex(self):
+        flex = _calculate_bedrock("nova-pro", 1_000_000, 0, "flex")
+        assert flex["input_price_per_1m"] == 0.4  # 0.8 * 0.5
+
+    def test_tier_batch(self):
+        batch = _calculate_bedrock("nova-pro", 1_000_000, 0, "batch")
+        assert batch["input_price_per_1m"] == 0.4  # 0.8 * 0.5
+
+    def test_has_metadata(self):
+        result = _calculate_bedrock("nova-lite", 1000, 1000)
+        assert "pricing_date" in result
+        assert "region" in result
+        assert "note" in result
+
+    def test_zero_tokens(self):
+        result = _calculate_bedrock("nova-micro", 0, 0)
+        assert result["total_cost"] == 0
+
+    def test_all_providers_covered(self):
+        providers = {v["provider"] for v in BEDROCK_PRICING.values()}
+        assert len(providers) >= 10  # At least 10 providers
+
+
+class TestListBedrockModels:
+    def test_returns_all(self):
+        result = _list_bedrock_models()
+        assert result["count"] == len(BEDROCK_PRICING)
+        assert result["count"] >= 20
+
+    def test_structure(self):
+        result = _list_bedrock_models()
+        for m in result["models"]:
+            assert "model" in m
+            assert "provider" in m
+            assert "input_per_1m_tokens" in m
+            assert "output_per_1m_tokens" in m
+
+    def test_has_source(self):
+        result = _list_bedrock_models()
+        assert "source" in result
+        assert "pricing_date" in result

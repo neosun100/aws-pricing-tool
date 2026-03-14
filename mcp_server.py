@@ -65,6 +65,45 @@ S3_PRICING = {
     "Glacier Deep Archive":{"storage":0.00099,"put_1k":0.05,  "get_1k": 0.0004},
 }
 
+# ── Bedrock pricing (us-east-1 Standard tier, 2026-03) ────────
+# Source: https://aws.amazon.com/bedrock/pricing/
+# NOTE: Price List API has delays for Bedrock; this table is manually maintained.
+
+BEDROCK_PRICING = {
+    # Anthropic
+    "claude-3.5-sonnet":    {"input": 6.00,  "output": 30.00, "provider": "Anthropic"},
+    "claude-3.5-sonnet-v2": {"input": 6.00,  "output": 30.00, "provider": "Anthropic"},
+    # Amazon Nova
+    "nova-pro":             {"input": 0.80,  "output": 3.20,  "provider": "Amazon"},
+    "nova-lite":            {"input": 0.06,  "output": 0.24,  "provider": "Amazon"},
+    "nova-micro":           {"input": 0.035, "output": 0.14,  "provider": "Amazon"},
+    # Meta Llama
+    "llama-4-scout":        {"input": 0.17,  "output": 0.35,  "provider": "Meta"},
+    "llama-4-maverick":     {"input": 0.50,  "output": 1.50,  "provider": "Meta"},
+    "llama-3.3-70b":        {"input": 0.72,  "output": 0.72,  "provider": "Meta"},
+    # DeepSeek
+    "deepseek-v3.2":        {"input": 0.62,  "output": 1.85,  "provider": "DeepSeek"},
+    # Mistral
+    "mistral-large-3":      {"input": 0.50,  "output": 1.50,  "provider": "Mistral"},
+    "ministral-8b":         {"input": 0.15,  "output": 0.15,  "provider": "Mistral"},
+    # Google
+    "gemma-3-27b":          {"input": 0.23,  "output": 0.38,  "provider": "Google"},
+    "gemma-3-12b":          {"input": 0.09,  "output": 0.29,  "provider": "Google"},
+    "gemma-3-4b":           {"input": 0.04,  "output": 0.08,  "provider": "Google"},
+    # Qwen
+    "qwen3-235b":           {"input": 0.22,  "output": 0.90,  "provider": "Qwen"},
+    "qwen3-32b":            {"input": 0.15,  "output": 0.60,  "provider": "Qwen"},
+    # Z AI
+    "glm-4.7":              {"input": 0.60,  "output": 2.20,  "provider": "Z AI"},
+    "glm-4.7-flash":        {"input": 0.07,  "output": 0.40,  "provider": "Z AI"},
+    # Moonshot
+    "kimi-k2.5":            {"input": 0.60,  "output": 3.00,  "provider": "Moonshot"},
+    # Writer
+    "palmyra-x5":           {"input": 0.60,  "output": 6.00,  "provider": "Writer"},
+}
+
+BEDROCK_PRICING_DATE = "2026-03"
+
 
 # ── Core logic (testable without MCP) ──────────────────────────
 
@@ -259,6 +298,48 @@ def _calculate_lambda(invocations, avg_duration_ms, memory_mb=128, architecture=
     }
 
 
+def _calculate_bedrock(model, input_tokens, output_tokens, tier="standard"):
+    # Fuzzy match model name
+    key = model.lower().strip().replace(" ", "-")
+    pricing = BEDROCK_PRICING.get(key)
+    if not pricing:
+        # Try partial match
+        for k, v in BEDROCK_PRICING.items():
+            if key in k or k in key:
+                pricing = v
+                key = k
+                break
+    if not pricing:
+        return {"error": f"Unknown model '{model}'. Use list_bedrock_models to see available models."}
+
+    multiplier = {"standard": 1.0, "priority": 1.75, "flex": 0.5, "batch": 0.5}.get(tier.lower(), 1.0)
+    input_cost = (input_tokens / 1_000_000) * pricing["input"] * multiplier
+    output_cost = (output_tokens / 1_000_000) * pricing["output"] * multiplier
+    total = input_cost + output_cost
+    return {
+        "model": key, "provider": pricing["provider"], "tier": tier,
+        "input_tokens": input_tokens, "output_tokens": output_tokens,
+        "input_price_per_1m": round(pricing["input"] * multiplier, 4),
+        "output_price_per_1m": round(pricing["output"] * multiplier, 4),
+        "input_cost": round(input_cost, 6), "output_cost": round(output_cost, 6),
+        "total_cost": round(total, 6),
+        "pricing_date": BEDROCK_PRICING_DATE,
+        "region": "us-east-1 (reference)",
+        "note": "Built-in reference pricing. AWS Price List API has delays for Bedrock models.",
+    }
+
+
+def _list_bedrock_models():
+    models = []
+    for key, v in sorted(BEDROCK_PRICING.items()):
+        models.append({
+            "model": key, "provider": v["provider"],
+            "input_per_1m_tokens": v["input"], "output_per_1m_tokens": v["output"],
+        })
+    return {"models": models, "count": len(models), "pricing_date": BEDROCK_PRICING_DATE,
+            "region": "us-east-1 (Standard tier)", "source": "https://aws.amazon.com/bedrock/pricing/"}
+
+
 # ── MCP Tool wrappers ──────────────────────────────────────────
 
 @mcp.tool
@@ -372,6 +453,31 @@ def calculate_lambda(
     Includes free tier deduction. Architecture: 'x86' or 'arm' (ARM is 20% cheaper).
     """
     return _calculate_lambda(invocations, avg_duration_ms, memory_mb, architecture)
+
+
+@mcp.tool
+def calculate_bedrock(
+    model: str, input_tokens: int, output_tokens: int, tier: str = "standard",
+) -> dict:
+    """Calculate Amazon Bedrock model inference cost.
+
+    Uses built-in reference pricing (updated 2026-03) since AWS Price List API
+    has delays for Bedrock models. Supports 20 models from 10 providers.
+    Tiers: 'standard' (default), 'priority' (+75%), 'flex' (-50%), 'batch' (-50%).
+    Example models: 'nova-pro', 'claude-3.5-sonnet', 'llama-4-maverick', 'deepseek-v3.2'.
+    Use list_bedrock_models to see all available models.
+    """
+    return _calculate_bedrock(model, input_tokens, output_tokens, tier)
+
+
+@mcp.tool
+def list_bedrock_models() -> dict:
+    """List all Bedrock models with built-in reference pricing.
+
+    Returns model names, providers, and per-1M-token prices (us-east-1 Standard tier).
+    Prices are manually maintained since AWS Price List API has delays for Bedrock.
+    """
+    return _list_bedrock_models()
 
 
 if __name__ == "__main__":
