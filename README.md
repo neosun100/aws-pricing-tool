@@ -480,7 +480,7 @@ for p in products:
 ```
 aws-pricing-tool/
 ├── pricing_tool.py    # Main program (single file, standalone)
-├── mcp_server.py      # MCP Server (6 tools, works with all MCP clients)
+├── mcp_server.py      # MCP Server (12 tools, works with all MCP clients)
 ├── SKILL.md           # Kiro Skill definition (template)
 ├── CLAUDE_COMMAND.md  # Claude Code slash command (template)
 ├── openclaw-skill/    # OpenClaw skill (skill.md + index.js)
@@ -512,7 +512,7 @@ Test coverage:
 |------|-------|----------|
 | `test_unit.py` | 66 | Region resolution, cache R/W, pricing extraction (OD + 6 RI), dedup/sort, formatting, 19 service filters, JSON/CSV output, color |
 | `test_e2e.py` | 27 | CLI arg parsing, --version/--help, query/batch/compare/list JSON/CSV/table output, cache commands, error handling |
-| `test_mcp.py` | 60 | MCP tool registration, query/compare/batch/list, Graviton mapping & recommendation, RI break-even analysis, S3 calculator (7 classes), Lambda calculator (free tier, ARM vs x86) |
+| `test_mcp.py` | 60 | MCP tool registration, query/compare/batch/list, Graviton mapping & recommendation, RI break-even analysis, S3 calculator (7 classes), Lambda calculator (free tier, ARM vs x86), Bedrock calculator (20 models, 4 tiers, fuzzy match), Bedrock model listing |
 
 E2E tests invoke the real CLI via subprocess with a mock runner injecting simulated API responses — no AWS credentials needed.
 

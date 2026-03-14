@@ -23,6 +23,10 @@ capabilities:
     description: "Recommend Graviton ARM alternatives for x86 instance types with cost savings estimate"
   - id: ri-breakeven-analysis
     description: "Calculate Reserved Instance break-even point vs On-Demand pricing"
+  - id: calculate-bedrock
+    description: "Calculate Amazon Bedrock model inference cost with 20 models from 10 providers and 4 pricing tiers"
+  - id: list-bedrock-models
+    description: "List all available Bedrock models with reference pricing per 1M tokens"
 
 permissions:
   network: false
