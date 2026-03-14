@@ -27,6 +27,7 @@ python3 pricing_tool.py --profile <your-profile> query ec2 -t c6g.xlarge -r toky
 ## Table of Contents
 
 - [Features](#features)
+- [MCP Server (Recommended)](#-mcp-server-recommended)
 - [AI Skill Integration](#-ai-skill-integration)
 - [Quick Start](#quick-start)
 - [Command Reference](#command-reference)
