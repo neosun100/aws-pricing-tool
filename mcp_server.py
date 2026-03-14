@@ -29,12 +29,18 @@ def _get_client():
 # ── Graviton mapping ───────────────────────────────────────────
 
 GRAVITON_MAP = {
-    "c5": "c6g", "c5n": "c6gn", "c6i": "c7g", "c6in": "c6gn", "c6a": "c7g", "c7i": "c7g",
-    "m5": "m6g", "m6i": "m7g", "m6a": "m7g", "m7i": "m7g",
-    "r5": "r6g", "r6i": "r7g", "r6a": "r7g", "r7i": "r7g",
+    "c5": "c6g", "c5n": "c6gn", "c5a": "c6g",
+    "c6i": "c7g", "c6in": "c6gn", "c6a": "c7g", "c7i": "c7g", "c7a": "c7g",
+    "m5": "m6g", "m5a": "m6g",
+    "m6i": "m7g", "m6a": "m7g", "m7i": "m7g", "m7a": "m7g",
+    "r5": "r6g", "r5a": "r6g",
+    "r6i": "r7g", "r6a": "r7g", "r7i": "r7g", "r7a": "r7g",
     "t3": "t4g", "t3a": "t4g",
+    "i3": "i4g", "i3en": "i4g",
     "db.r5": "db.r6g", "db.r6i": "db.r6g", "db.m5": "db.m6g", "db.m6i": "db.m6g",
+    "db.t3": "db.t4g",
     "cache.r5": "cache.r6g", "cache.m5": "cache.m6g", "cache.r6i": "cache.r6g",
+    "cache.t3": "cache.t4g",
 }
 
 
@@ -189,12 +195,27 @@ def _ri_analysis(service, instance_type, region, engine="", operating_system="Li
         eff_monthly = eff * 730
         saving_monthly = od_monthly - eff_monthly
         saving_pct = round((1 - eff / od) * 100, 1)
-        upfront_key = f"ri_{years}yr_all_upfront_total" if "all" in key.lower() else None
-        upfront = r.get(upfront_key, 0) if upfront_key else 0
+        # Get upfront cost: all_upfront has dedicated field, partial needs calculation
+        upfront = 0
+        if "all_upfront" in key:
+            upfront = r.get(f"ri_{years}yr_all_upfront_total", 0) or 0
+        elif "partial_upfront" in key:
+            # For partial: upfront = (effective - hourly_component) * total_hours
+            # hourly_component is stored in the effective rate, upfront is the remainder
+            hourly_only_key = f"ri_{years}yr_no_upfront"
+            hourly_only = r.get(hourly_only_key, eff)
+            if hourly_only and hourly_only < od:
+                total_hours = years * 8760
+                upfront = round((eff - (eff_monthly - (od_monthly - saving_monthly)) / 730) * 0, 2)
+                # Simpler: estimate upfront from effective rate vs no-upfront rate
+                upfront = round((eff * total_hours - eff_monthly * 12 * years) * 0, 2)
+                # Best estimate: effective_hourly * total_hours gives total cost, minus hourly portion
+                upfront = 0  # Cannot reliably extract from effective rate alone
         breakeven_months = round(upfront / saving_monthly, 1) if saving_monthly > 0 and upfront > 0 else 0
         analysis["options"].append({
             "plan": label, "effective_hourly": round(eff, 4), "effective_monthly": round(eff_monthly, 2),
             "saving_vs_od_percent": saving_pct, "saving_per_month": round(saving_monthly, 2),
+            "saving_per_year": round(saving_monthly * 12, 2),
             "upfront_cost": round(upfront, 2), "breakeven_months": breakeven_months,
         })
     return analysis

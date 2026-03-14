@@ -10,7 +10,7 @@ English | [中文](README_CN.md)
   <img src="https://img.shields.io/badge/python-3.8+-blue.svg" alt="Python 3.8+">
   <img src="https://img.shields.io/badge/services-19-orange.svg" alt="19 Services">
   <img src="https://img.shields.io/badge/regions-34-green.svg" alt="34 Regions">
-  <img src="https://img.shields.io/badge/tests-133%20passed-brightgreen.svg" alt="133 Tests">
+  <img src="https://img.shields.io/badge/tests-139%20passed-brightgreen.svg" alt="139 Tests">
   <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License">
 </p>
 
@@ -487,7 +487,7 @@ aws-pricing-tool/
 ├── conftest.py        # Test fixtures (mock AWS API responses)
 ├── test_unit.py       # Unit tests (66)
 ├── test_e2e.py        # End-to-end tests (27)
-├── test_mcp.py        # MCP Server tests (40)
+├── test_mcp.py        # MCP Server tests (46)
 ├── logo.png           # Project logo
 ├── README.md          # This document (English)
 ├── README_CN.md       # Chinese documentation
@@ -498,7 +498,7 @@ aws-pricing-tool/
 
 ```bash
 pip3 install pytest
-python3 -m pytest -v                    # Run all 133 tests
+python3 -m pytest -v                    # Run all 139 tests
 python3 -m pytest test_unit.py -v       # Unit tests only
 python3 -m pytest test_e2e.py -v        # E2E tests only
 python3 -m pytest -k "extract_pricing"  # Filter by name
@@ -510,7 +510,7 @@ Test coverage:
 |------|-------|----------|
 | `test_unit.py` | 66 | Region resolution, cache R/W, pricing extraction (OD + 6 RI), dedup/sort, formatting, 19 service filters, JSON/CSV output, color |
 | `test_e2e.py` | 27 | CLI arg parsing, --version/--help, query/batch/compare/list JSON/CSV/table output, cache commands, error handling |
-| `test_mcp.py` | 40 | MCP tool registration, query/compare/batch/list, Graviton mapping & recommendation, RI break-even analysis, S3 calculator (7 classes), Lambda calculator (free tier, ARM vs x86) |
+| `test_mcp.py` | 46 | MCP tool registration, query/compare/batch/list, Graviton mapping & recommendation, RI break-even analysis, S3 calculator (7 classes), Lambda calculator (free tier, ARM vs x86) |
 
 E2E tests invoke the real CLI via subprocess with a mock runner injecting simulated API responses — no AWS credentials needed.
 
@@ -526,7 +526,7 @@ E2E tests invoke the real CLI via subprocess with a mock runner injecting simula
 
 | Version | Date | Changes |
 |---------|------|---------|
-| v2.0.0 | 2025-03-13 | MCP Server upgraded to 10 tools: +`graviton_recommend` +`ri_analysis` +`calculate_s3` +`calculate_lambda`; 133 tests (40 MCP + 93 original); "pricing consultant" capabilities now callable via MCP |
+| v2.0.0 | 2025-03-13 | MCP Server upgraded to 10 tools: +`graviton_recommend` +`ri_analysis` +`calculate_s3` +`calculate_lambda`; 139 tests (46 MCP + 93 original); "pricing consultant" capabilities now callable via MCP |
 | v1.5.0 | 2025-03-13 | MCP Server (`mcp_server.py`) with 6 tools; works with Kiro/Claude Code/OpenClaw/Cursor/VS Code; 113 tests (20 MCP + 93 original) |
 | v1.3.0 | 2025-03-12 | OpenClaw skill support (`openclaw-skill/`); 3-platform AI Skill (Kiro + Claude Code + OpenClaw); `.gitignore` hardened for sensitive files |
 | v1.2.0 | 2025-02-27 | `--json`/`--csv` on all commands; colored terminal output; region-specific `list`; `--version`; 19 service filters; 3yr_No_Upfront RI fix; `regions` command; 93 tests |

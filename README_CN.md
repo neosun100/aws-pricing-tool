@@ -409,7 +409,7 @@ aws-pricing-tool/
 ├── conftest.py        # 测试 fixtures（模拟 AWS API 响应）
 ├── test_unit.py       # 单元测试（66 个）
 ├── test_e2e.py        # 端到端测试（27 个）
-├── test_mcp.py        # MCP Server 测试（40 个）
+├── test_mcp.py        # MCP Server 测试（46 个）
 ├── logo.png           # 项目 Logo
 ├── README.md          # 英文文档
 ├── README_CN.md       # 中文文档
@@ -420,7 +420,7 @@ aws-pricing-tool/
 
 ```bash
 pip3 install pytest
-python3 -m pytest -v                    # 运行全部 133 个测试
+python3 -m pytest -v                    # 运行全部 139 个测试
 python3 -m pytest test_unit.py -v       # 仅单元测试
 python3 -m pytest test_e2e.py -v        # 仅 E2E 测试
 python3 -m pytest -k "extract_pricing"  # 按名称过滤
@@ -432,7 +432,7 @@ python3 -m pytest -k "extract_pricing"  # 按名称过滤
 |------|--------|----------|
 | `test_unit.py` | 66 | Region 解析、缓存读写、价格提取（OD + 6 RI）、去重排序、格式化、19 服务 filter、JSON/CSV 输出、颜色 |
 | `test_e2e.py` | 27 | CLI 参数解析、--version/--help、query/batch/compare/list 全命令 JSON/CSV/表格输出、缓存命令、错误处理 |
-| `test_mcp.py` | 40 | MCP 工具注册、查价/比价/批量/列表、Graviton 映射与推荐、RI 回本分析、S3 计算器（7 类存储）、Lambda 计算器（免费额度、ARM vs x86） |
+| `test_mcp.py` | 46 | MCP 工具注册、查价/比价/批量/列表、Graviton 映射与推荐、RI 回本分析、S3 计算器（7 类存储）、Lambda 计算器（免费额度、ARM vs x86） |
 
 E2E 测试通过 subprocess 调用真实 CLI，使用 mock runner 注入模拟 API 响应，无需 AWS 凭证。
 
@@ -448,7 +448,7 @@ E2E 测试通过 subprocess 调用真实 CLI，使用 mock runner 注入模拟 A
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
-| v2.0.0 | 2025-03-13 | MCP Server 升级至 10 个工具：+`graviton_recommend` +`ri_analysis` +`calculate_s3` +`calculate_lambda`；133 个测试（40 MCP + 93 原有）；"定价顾问"能力全部可通过 MCP 调用 |
+| v2.0.0 | 2025-03-13 | MCP Server 升级至 10 个工具：+`graviton_recommend` +`ri_analysis` +`calculate_s3` +`calculate_lambda`；139 个测试（46 MCP + 93 原有）；"定价顾问"能力全部可通过 MCP 调用 |
 | v1.5.0 | 2025-03-13 | MCP Server（`mcp_server.py`）6 个工具；支持 Kiro/Claude Code/OpenClaw/Cursor/VS Code；113 个测试（20 MCP + 93 原有） |
 | v1.3.0 | 2025-03-12 | OpenClaw skill 支持（`openclaw-skill/`）；3 平台 AI Skill（Kiro + Claude Code + OpenClaw）；`.gitignore` 增强敏感文件过滤 |
 | v1.2.0 | 2025-02-27 | 全命令 `--json`/`--csv` 输出；终端彩色；`list` 按 Region 过滤；`--version`；19 服务 filter 补全；3yr_No_Upfront RI 修复；`regions` 命令；93 个测试 |

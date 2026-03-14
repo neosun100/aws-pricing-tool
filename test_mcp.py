@@ -173,6 +173,25 @@ class TestSuggestGraviton:
     def test_unknown_type(self):
         assert _suggest_graviton("p4d.24xlarge") is None
 
+    def test_amd_variants(self):
+        assert _suggest_graviton("c5a.xlarge") == "c6g.xlarge"
+        assert _suggest_graviton("m5a.large") == "m6g.large"
+        assert _suggest_graviton("r5a.2xlarge") == "r6g.2xlarge"
+        assert _suggest_graviton("c7a.xlarge") == "c7g.xlarge"
+
+    def test_newer_generations(self):
+        assert _suggest_graviton("m7a.large") == "m7g.large"
+        assert _suggest_graviton("r7a.xlarge") == "r7g.xlarge"
+
+    def test_db_t3(self):
+        assert _suggest_graviton("db.t3.medium") == "db.t4g.medium"
+
+    def test_cache_t3(self):
+        assert _suggest_graviton("cache.t3.medium") == "cache.t4g.medium"
+
+    def test_storage_optimized(self):
+        assert _suggest_graviton("i3.xlarge") == "i4g.xlarge"
+
 
 class TestGravitonRecommend:
     @patch("mcp_server._get_client")
@@ -197,6 +216,7 @@ class TestRiAnalysis:
             result = _ri_analysis("ec2", "c6g.xlarge", "tokyo")
             assert "on_demand_hourly" in result
             assert "on_demand_monthly" in result
+            assert "on_demand_yearly" in result
             assert "options" in result
             assert isinstance(result["options"], list)
 
@@ -209,6 +229,17 @@ class TestRiAnalysis:
                 assert "plan" in opt
                 assert "saving_vs_od_percent" in opt
                 assert "breakeven_months" in opt
+                assert "saving_per_year" in opt
+                assert "effective_monthly" in opt
+
+    @patch("mcp_server._get_client")
+    def test_savings_positive(self, mock_client):
+        mock_client.return_value = MagicMock()
+        with patch("pricing_tool.query_products", return_value=[EC2_PRODUCT]):
+            result = _ri_analysis("ec2", "c6g.xlarge", "tokyo")
+            for opt in result["options"]:
+                assert opt["saving_vs_od_percent"] > 0
+                assert opt["saving_per_month"] > 0
 
     def test_invalid_service(self):
         result = _ri_analysis("bad", "c6g.xlarge", "tokyo")
