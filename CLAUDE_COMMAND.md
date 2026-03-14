@@ -698,16 +698,28 @@ GB-秒 = 调用次数 × (内存MB / 1024) × (执行时间ms / 1000)
 
 ### Bedrock (AI 模型)
 
-| 模型 | 输入 (1K tokens) | 输出 (1K tokens) |
-|------|-----------------|-----------------|
-| Claude 3.5 Sonnet | $0.003 | $0.015 |
-| Claude 3 Haiku | $0.00025 | $0.00125 |
-| Claude 3 Opus | $0.015 | $0.075 |
-| Nova Pro | $0.0008 | $0.0032 |
-| Nova Lite | $0.00006 | $0.00024 |
-| Nova Micro | $0.000035 | $0.00014 |
+> ⚠️ **已知限制**：AWS Price List API 对 Bedrock 模型价格更新有延迟，最新模型可能查不到。
+> 以下为 us-east-1 Standard tier 参考价（2026-03），实际价格请查 https://aws.amazon.com/bedrock/pricing/
 
-> Bedrock 价格变动较快，以上为参考值，建议查 https://aws.amazon.com/bedrock/pricing/
+| 厂商 | 模型 | 输入 (1M tokens) | 输出 (1M tokens) |
+|------|------|-----------------|-----------------|
+| Anthropic | Claude 3.5 Sonnet (Extended) | $6.00 | $30.00 |
+| Anthropic | Claude 3.5 Sonnet v2 (Extended) | $6.00 | $30.00 |
+| Amazon | Nova Pro | $0.80 | $3.20 |
+| Amazon | Nova Lite | $0.06 | $0.24 |
+| Amazon | Nova Micro | $0.035 | $0.14 |
+| Meta | Llama 4 Scout | $0.17 | $0.35 |
+| Meta | Llama 4 Maverick | $0.50 | $1.50 |
+| Meta | Llama 3.3 70B | $0.72 | $0.72 |
+| DeepSeek | DeepSeek v3.2 | $0.62 | $1.85 |
+| Mistral | Mistral Large 3 | $0.50 | $1.50 |
+| Mistral | Ministral 8B | $0.15 | $0.15 |
+| Google | Gemma 3 27B | $0.23 | $0.38 |
+| Qwen | Qwen3 235B | $0.22 | $0.90 |
+| Z AI | GLM 4.7 | $0.60 | $2.20 |
+| Z AI | GLM 4.7 Flash | $0.07 | $0.40 |
+
+> 💡 **提示**：其他 Region 通常比 us-east-1 贵 10-20%。Priority tier 加价 75%，Flex tier 打 5 折。
 
 ## 按用量服务 - 交互策略
 

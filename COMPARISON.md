@@ -122,4 +122,8 @@ AI 助手会根据用户的问题自动选择合适的工具：
 - 集成 AWS Cost Explorer（分析实际账单，而非查价）
 - Web UI 仪表板
 
+### 已知限制
+- AWS Price List API 对 Bedrock 模型价格更新有延迟，最新模型可能查不到。Bedrock 价格通过 SKILL.md 中的内置参考价表提供，需定期手动更新
+- Partial Upfront RI 的预付金额无法从 Price List API 的 effective rate 中精确反推
+
 **当前 v2.0.0 是这个项目的终极版本。**
