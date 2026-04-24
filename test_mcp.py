@@ -9,6 +9,12 @@ from mcp_server import (
     _graviton_recommend, _ri_analysis, _calculate_s3, _calculate_lambda,
     _calculate_bedrock, _list_bedrock_models,
     _suggest_graviton, GRAVITON_MAP, S3_PRICING, BEDROCK_PRICING,
+    _calculate_ebs, _calculate_data_transfer, _calculate_cloudfront,
+    _calculate_dynamodb, _calculate_nat_gateway, _calculate_elb,
+    _calculate_sqs, _calculate_sns, _calculate_kinesis,
+    _calculate_efs, _calculate_route53, _calculate_athena,
+    _calculate_glue, _calculate_msk, _calculate_api_gateway,
+    EBS_PRICING, EFS_PRICING, MSK_BROKER_PRICING,
 )
 import pricing_tool as pt
 from conftest import EC2_PRODUCT
@@ -18,7 +24,7 @@ class TestToolRegistration:
     def test_tool_count(self):
         import asyncio
         tools = asyncio.run(mcp.list_tools())
-        assert len(tools) == 12
+        assert len(tools) == 27
 
     def test_tool_names(self):
         import asyncio
@@ -29,6 +35,11 @@ class TestToolRegistration:
             "list_types", "get_regions", "get_services",
             "graviton_recommend", "ri_analysis", "calculate_s3", "calculate_lambda",
             "calculate_bedrock", "list_bedrock_models",
+            "calculate_ebs", "calculate_data_transfer", "calculate_cloudfront",
+            "calculate_dynamodb", "calculate_nat_gateway", "calculate_elb",
+            "calculate_sqs", "calculate_sns", "calculate_kinesis",
+            "calculate_efs", "calculate_route53", "calculate_athena",
+            "calculate_glue", "calculate_msk", "calculate_api_gateway",
         }
 
 
@@ -556,3 +567,258 @@ class TestBatchCompareEdgeCases:
         with patch("pricing_tool.query_products", return_value=[EC2_PRODUCT]):
             result = _batch_compare("ec2", ["c6g.xlarge"], "tokyo")
             assert len(result) == 1
+
+
+# ── v2.1.0 new calculator tests ────────────────────────────────
+
+class TestCalculateEbs:
+    def test_gp3_basic(self):
+        r = _calculate_ebs("gp3", 500)
+        assert r["storage_cost"] == 40.0
+        assert r["iops_cost"] == 0  # default 3000 free
+        assert r["total_monthly"] == 40.0
+
+    def test_gp3_custom_iops(self):
+        r = _calculate_ebs("gp3", 100, iops=6000, throughput_mbps=250)
+        assert r["iops_cost"] == (6000 - 3000) * 0.005
+        assert r["throughput_cost"] == (250 - 125) * 0.04
+
+    def test_io1(self):
+        r = _calculate_ebs("io1", 200, iops=10000)
+        assert r["storage_cost"] == 200 * 0.125
+        assert r["iops_cost"] == 10000 * 0.065
+
+    def test_snapshot(self):
+        r = _calculate_ebs("gp3", 100, snapshot_gb=50)
+        assert r["snapshot_cost"] == 2.5
+
+    def test_invalid_type(self):
+        r = _calculate_ebs("bad", 100)
+        assert "error" in r
+
+    def test_all_types(self):
+        for t in EBS_PRICING:
+            r = _calculate_ebs(t, 100)
+            assert r["total_monthly"] >= 0
+
+
+class TestCalculateDataTransfer:
+    def test_free_tier(self):
+        r = _calculate_data_transfer(egress_gb=50)
+        assert r["egress_cost"] == 0
+
+    def test_basic_egress(self):
+        r = _calculate_data_transfer(egress_gb=200)
+        assert r["egress_cost"] == pytest.approx((200 - 100) * 0.09)
+
+    def test_cross_az(self):
+        r = _calculate_data_transfer(cross_az_gb=100)
+        assert r["cross_az_cost"] == 2.0  # 100 * 0.01 * 2
+
+    def test_inter_region(self):
+        r = _calculate_data_transfer(inter_region_gb=500)
+        assert r["inter_region_cost"] == 10.0
+
+    def test_zero(self):
+        r = _calculate_data_transfer()
+        assert r["total_monthly"] == 0
+
+
+class TestCalculateCloudfront:
+    def test_basic(self):
+        r = _calculate_cloudfront(transfer_gb=1000, https_requests=10_000_000)
+        assert r["transfer_cost"] == 1000 * 0.085
+        assert r["https_cost"] == (10_000_000 / 10000) * 0.01
+
+    def test_zero(self):
+        r = _calculate_cloudfront()
+        assert r["total_monthly"] == 0
+
+    def test_tiered(self):
+        r = _calculate_cloudfront(transfer_gb=20000)
+        assert r["transfer_cost"] > 10240 * 0.085  # crosses into second tier
+
+
+class TestCalculateDynamodb:
+    def test_on_demand(self):
+        r = _calculate_dynamodb("on-demand", write_units=10_000_000, read_units=50_000_000, storage_gb=100)
+        assert r["write_cost"] == pytest.approx(12.5)
+        assert r["read_cost"] == pytest.approx(12.5)
+        assert r["storage_cost"] == 25.0
+
+    def test_provisioned(self):
+        r = _calculate_dynamodb("provisioned", storage_gb=50, wcu=100, rcu=500)
+        assert r["write_cost"] == pytest.approx(100 * 0.00065 * 730, rel=0.01)
+        assert r["read_cost"] == pytest.approx(500 * 0.00013 * 730, rel=0.01)
+
+    def test_zero(self):
+        r = _calculate_dynamodb()
+        assert r["total_monthly"] == 0
+
+
+class TestCalculateNatGateway:
+    def test_basic(self):
+        r = _calculate_nat_gateway(data_processed_gb=500)
+        assert r["fixed_cost"] == pytest.approx(730 * 0.045)
+        assert r["data_cost"] == pytest.approx(500 * 0.045)
+
+    def test_no_data(self):
+        r = _calculate_nat_gateway()
+        assert r["total_monthly"] == pytest.approx(730 * 0.045)
+
+
+class TestCalculateElb:
+    def test_alb(self):
+        r = _calculate_elb("alb", lcu=10)
+        assert r["fixed_cost"] == pytest.approx(730 * 0.0225, rel=0.01)
+        assert r["usage_cost"] == pytest.approx(10 * 0.008 * 730)
+
+    def test_nlb(self):
+        r = _calculate_elb("nlb")
+        assert r["fixed_cost"] == pytest.approx(730 * 0.0225, rel=0.01)
+
+    def test_clb(self):
+        r = _calculate_elb("clb", data_processed_gb=1000)
+        assert r["usage_cost"] == pytest.approx(1000 * 0.008)
+
+    def test_invalid(self):
+        r = _calculate_elb("bad")
+        assert "error" in r
+
+
+class TestCalculateSqs:
+    def test_free_tier(self):
+        r = _calculate_sqs(requests=500_000)
+        assert r["total_monthly"] == 0
+
+    def test_standard(self):
+        r = _calculate_sqs(requests=10_000_000, queue_type="standard")
+        assert r["total_monthly"] == pytest.approx(9_000_000 / 1_000_000 * 0.40)
+
+    def test_fifo(self):
+        r = _calculate_sqs(requests=5_000_000, queue_type="fifo")
+        assert r["total_monthly"] == pytest.approx(4_000_000 / 1_000_000 * 0.50)
+
+
+class TestCalculateSns:
+    def test_free_publishes(self):
+        r = _calculate_sns(publishes=500_000)
+        assert r["publish_cost"] == 0
+
+    def test_paid(self):
+        r = _calculate_sns(publishes=5_000_000, http_deliveries=1_000_000)
+        assert r["publish_cost"] == pytest.approx(4_000_000 / 1_000_000 * 0.50)
+        assert r["http_cost"] == pytest.approx(1_000_000 / 100_000 * 0.06)
+
+    def test_sms(self):
+        r = _calculate_sns(sms_messages=1000, sms_rate=0.01)
+        assert r["sms_cost"] == 10.0
+
+
+class TestCalculateKinesis:
+    def test_on_demand(self):
+        r = _calculate_kinesis("on-demand", data_in_gb=100, data_out_gb=200)
+        assert r["ingest_cost"] == 8.0
+        assert r["retrieval_cost"] == 8.0
+
+    def test_provisioned(self):
+        r = _calculate_kinesis("provisioned", shards=4, hours=730)
+        assert r["shard_cost"] == pytest.approx(4 * 0.015 * 730)
+
+
+class TestCalculateEfs:
+    def test_standard(self):
+        r = _calculate_efs(1000, "Standard")
+        assert r["storage_cost"] == 300.0
+
+    def test_ia(self):
+        r = _calculate_efs(1000, "Infrequent Access", read_gb=100)
+        assert r["storage_cost"] == 16.0
+        assert r["read_cost"] == 1.0
+
+    def test_invalid(self):
+        r = _calculate_efs(100, "Bad")
+        assert "error" in r
+
+    def test_all_classes(self):
+        for cls in EFS_PRICING:
+            r = _calculate_efs(100, cls)
+            assert r["total_monthly"] >= 0
+
+
+class TestCalculateRoute53:
+    def test_basic(self):
+        r = _calculate_route53(hosted_zones=5, queries_million=10, health_checks=3)
+        assert r["zone_cost"] == 2.5
+        assert r["query_cost"] == 4.0
+        assert r["health_cost"] == 1.5
+
+    def test_over_25_zones(self):
+        r = _calculate_route53(hosted_zones=30)
+        assert r["zone_cost"] == pytest.approx(25 * 0.50 + 5 * 0.10)
+
+
+class TestCalculateAthena:
+    def test_basic(self):
+        r = _calculate_athena(data_scanned_tb=5)
+        assert r["total_monthly"] == 25.0
+
+    def test_zero(self):
+        r = _calculate_athena()
+        assert r["total_monthly"] == 0
+
+
+class TestCalculateGlue:
+    def test_basic(self):
+        r = _calculate_glue(dpu_hours=100, crawler_dpu_hours=10)
+        assert r["job_cost"] == 44.0
+        assert r["crawler_cost"] == 4.4
+
+    def test_catalog_free(self):
+        r = _calculate_glue(catalog_objects=500_000)
+        assert r["catalog_cost"] == 0
+
+    def test_catalog_paid(self):
+        r = _calculate_glue(catalog_objects=2_000_000)
+        assert r["catalog_cost"] == pytest.approx(10.0)
+
+
+class TestCalculateMsk:
+    def test_provisioned(self):
+        r = _calculate_msk("provisioned", "kafka.m5.large", 3, storage_gb=1000)
+        assert r["broker_cost"] == pytest.approx(3 * 0.21 * 730)
+        assert r["storage_cost"] == 100.0
+
+    def test_serverless(self):
+        r = _calculate_msk("serverless", serverless_partitions=10, serverless_in_gb=500, serverless_out_gb=200)
+        assert r["partition_cost"] == pytest.approx(10 * 0.01 * 730)
+        assert r["ingest_cost"] == 50.0
+        assert r["retrieval_cost"] == 10.0
+
+    def test_invalid_broker(self):
+        r = _calculate_msk("provisioned", "bad.type")
+        assert "error" in r
+
+    def test_all_broker_types(self):
+        for bt in MSK_BROKER_PRICING:
+            r = _calculate_msk("provisioned", bt, 1)
+            assert r["total_monthly"] >= 0
+
+
+class TestCalculateApiGateway:
+    def test_rest(self):
+        r = _calculate_api_gateway("rest", requests=10_000_000)
+        assert r["total_monthly"] == 35.0
+
+    def test_http(self):
+        r = _calculate_api_gateway("http", requests=10_000_000)
+        assert r["total_monthly"] == 10.0
+
+    def test_websocket(self):
+        r = _calculate_api_gateway("websocket", message_count=5_000_000, connection_minutes=10_000_000)
+        assert r["message_cost"] == 5.0
+        assert r["connection_cost"] == 2.5
+
+    def test_invalid(self):
+        r = _calculate_api_gateway("bad")
+        assert "error" in r

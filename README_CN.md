@@ -10,7 +10,7 @@
 
 ```bash
 pip3 install boto3
-python3 pricing_tool.py --version                                          # v2.0.2
+python3 pricing_tool.py --version                                          # v2.1.0
 python3 pricing_tool.py --profile <your-profile> query ec2 -t c6g.xlarge -r 东京
 ```
 
@@ -462,7 +462,7 @@ for p in products:
 ```
 aws-pricing-tool/
 ├── pricing_tool.py    # 主程序（单文件，可独立运行）
-├── mcp_server.py      # MCP Server（12 个工具，适配所有 MCP 客户端）
+├── mcp_server.py      # MCP Server（27 个工具，适配所有 MCP 客户端）
 ├── SKILL.md           # Kiro Skill 定义文件（模板，需配置路径和 Profile）
 ├── CLAUDE_COMMAND.md  # Claude Code Slash Command 文件（模板）
 ├── openclaw-skill/    # OpenClaw Skill（skill.md + index.js）
@@ -482,7 +482,7 @@ aws-pricing-tool/
 
 ```bash
 pip3 install pytest
-python3 -m pytest -v                    # 运行全部 200 个测试
+python3 -m pytest -v                    # 运行全部 250 个测试
 python3 -m pytest test_unit.py -v       # 仅单元测试
 python3 -m pytest test_e2e.py -v        # 仅 E2E 测试
 python3 -m pytest -k "extract_pricing"  # 按名称过滤
@@ -510,7 +510,7 @@ E2E 测试通过 subprocess 调用真实 CLI，使用 mock runner 注入模拟 A
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
-| v2.0.2 | 2025-04-24 | 修复 fastmcp v3 兼容性；Python 3.8 类型注解修复（`typing.List[Dict]`）；200 个测试（84 MCP + 81 unit + 35 E2E）；清理垃圾文件；新增 ElastiCache fixture；S3/Lambda/Bedrock/Graviton/RI 边界测试；修复 Partial Upfront RI upfront=0 bug；补齐 timestream 文档；RDS/ElastiCache E2E 覆盖 |
+| v2.1.0 | 2025-04-24 | MCP Server 升级至 27 个工具：+15 按用量计算器（EBS、Data Transfer、CloudFront、DynamoDB、NAT Gateway、ELB、SQS、SNS、Kinesis、EFS、Route53、Athena、Glue、MSK、API Gateway）；修复 fastmcp v3 兼容性；修复 Partial Upfront RI upfront=0 bug；Python 3.8 类型注解；250 个测试（134 MCP + 81 unit + 35 E2E） |
 | v2.0.0 | 2025-03-13 | MCP Server 升级至 12 个工具：+`graviton_recommend` +`ri_analysis` +`calculate_s3` +`calculate_lambda` +`calculate_bedrock` +`list_bedrock_models`；153 个测试（60 MCP + 93 原有）；"定价顾问"能力全部可通过 MCP 调用 |
 | v1.5.0 | 2025-03-13 | MCP Server（`mcp_server.py`）6 个工具；支持 Kiro/Claude Code/OpenClaw/Cursor/VS Code；113 个测试（20 MCP + 93 原有） |
 | v1.3.0 | 2025-03-12 | OpenClaw skill 支持（`openclaw-skill/`）；3 平台 AI Skill（Kiro + Claude Code + OpenClaw）；`.gitignore` 增强敏感文件过滤 |

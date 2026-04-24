@@ -13,7 +13,7 @@ make test
 ## Running Tests
 
 ```bash
-make test          # All 200 tests
+make test          # All 250 tests
 make lint          # Syntax check
 ```
 

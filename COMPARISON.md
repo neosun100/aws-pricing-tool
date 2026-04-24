@@ -103,11 +103,11 @@ AI 助手会根据用户的问题自动选择合适的工具：
 | CLI 工具 | ✅ 完成 | query/batch/compare/list/regions/cache |
 | MCP Server | ✅ 完成 | 6 个工具，所有 MCP 客户端通用 |
 | AI Skill | ✅ 完成 | Kiro + Claude Code + OpenClaw 三平台 |
-| 测试 | ✅ 完成 | 200 个测试（84 MCP + 81 unit + 35 E2E） |
+| 测试 | ✅ 完成 | 250 个测试（134 MCP + 81 unit + 35 E2E） |
 | 文档 | ✅ 完成 | 英文 + 中文 README，CONTRIBUTING，ROADMAP |
 | 安全 | ✅ 完成 | 无敏感信息泄露，.gitignore 覆盖完整 |
 | CI/CD | ✅ 完成 | GitHub Actions，Python 3.8/3.10/3.12 |
-| 版本管理 | ✅ 完成 | v1.3.0 + v1.5.0 + v2.0.0 + v2.0.2 五个里程碑 |
+| 版本管理 | ✅ 完成 | v1.3.0 + v1.5.0 + v2.0.0 + v2.1.0 六个里程碑 |
 
 ## 6. 是否还有优化空间？
 
@@ -126,4 +126,4 @@ AI 助手会根据用户的问题自动选择合适的工具：
 - AWS Price List API 对 Bedrock 模型价格更新有延迟，最新模型可能查不到。Bedrock 价格通过 SKILL.md 中的内置参考价表提供，需定期手动更新
 - Partial Upfront RI 的预付金额无法从 Price List API 的 effective rate 中精确反推
 
-**当前 v2.0.2 是这个项目的最新版本。**
+**当前 v2.1.0 是这个项目的最新版本。**

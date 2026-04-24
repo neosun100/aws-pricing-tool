@@ -336,6 +336,345 @@ def _list_bedrock_models():
             "region": "us-east-1 (Standard tier)", "source": "https://aws.amazon.com/bedrock/pricing/"}
 
 
+# ── EBS pricing formulas ───────────────────────────────────────
+
+EBS_PRICING = {
+    "gp3":  {"storage": 0.08, "iops_free": 3000, "iops_rate": 0.005, "tp_free": 125, "tp_rate": 0.04},
+    "gp2":  {"storage": 0.10},
+    "io1":  {"storage": 0.125, "iops_rate": 0.065},
+    "io2":  {"storage": 0.125, "iops_rate": 0.065},
+    "st1":  {"storage": 0.045},
+    "sc1":  {"storage": 0.015},
+}
+
+
+def _calculate_ebs(volume_type, size_gb, iops=0, throughput_mbps=0, snapshot_gb=0):
+    p = EBS_PRICING.get(volume_type)
+    if not p:
+        return {"error": f"Unknown EBS type '{volume_type}'. Valid: {list(EBS_PRICING.keys())}"}
+    storage_cost = size_gb * p["storage"]
+    iops_cost = 0
+    tp_cost = 0
+    if volume_type == "gp3":
+        iops_cost = max(0, iops - p["iops_free"]) * p["iops_rate"]
+        tp_cost = max(0, throughput_mbps - p["tp_free"]) * p["tp_rate"]
+    elif volume_type in ("io1", "io2"):
+        iops_cost = iops * p["iops_rate"]
+    snapshot_cost = snapshot_gb * 0.05
+    total = storage_cost + iops_cost + tp_cost + snapshot_cost
+    return {
+        "volume_type": volume_type, "size_gb": size_gb,
+        "storage_cost": round(storage_cost, 2), "iops_cost": round(iops_cost, 2),
+        "throughput_cost": round(tp_cost, 2), "snapshot_cost": round(snapshot_cost, 2),
+        "total_monthly": round(total, 2),
+        "note": "Prices based on us-east-1.",
+    }
+
+
+# ── Data Transfer pricing ─────────────────────────────────────
+
+def _calculate_data_transfer(egress_gb=0, cross_az_gb=0, inter_region_gb=0):
+    free_egress = 100
+    paid = max(0, egress_gb - free_egress)
+    if paid <= 10140:
+        egress_cost = paid * 0.09
+    elif paid <= 50140:
+        egress_cost = 10140 * 0.09 + (paid - 10140) * 0.085
+    elif paid <= 150140:
+        egress_cost = 10140 * 0.09 + 40000 * 0.085 + (paid - 50140) * 0.07
+    else:
+        egress_cost = 10140 * 0.09 + 40000 * 0.085 + 100000 * 0.07 + (paid - 150140) * 0.05
+    cross_az_cost = cross_az_gb * 0.01 * 2  # bidirectional
+    inter_region_cost = inter_region_gb * 0.02
+    total = egress_cost + cross_az_cost + inter_region_cost
+    return {
+        "egress_gb": egress_gb, "egress_cost": round(egress_cost, 2),
+        "cross_az_gb": cross_az_gb, "cross_az_cost": round(cross_az_cost, 2),
+        "inter_region_gb": inter_region_gb, "inter_region_cost": round(inter_region_cost, 2),
+        "total_monthly": round(total, 2),
+        "note": "Ingress is free. First 100GB egress/mo free. Cross-AZ is bidirectional ($0.01/GB each way).",
+    }
+
+
+# ── CloudFront pricing ────────────────────────────────────────
+
+def _calculate_cloudfront(transfer_gb=0, http_requests=0, https_requests=0):
+    if transfer_gb <= 10240:
+        transfer_cost = transfer_gb * 0.085
+    elif transfer_gb <= 51200:
+        transfer_cost = 10240 * 0.085 + (transfer_gb - 10240) * 0.080
+    elif transfer_gb <= 153600:
+        transfer_cost = 10240 * 0.085 + 40960 * 0.080 + (transfer_gb - 51200) * 0.060
+    else:
+        transfer_cost = 10240 * 0.085 + 40960 * 0.080 + 102400 * 0.060 + (transfer_gb - 153600) * 0.040
+    http_cost = (http_requests / 10000) * 0.0075
+    https_cost = (https_requests / 10000) * 0.0100
+    total = transfer_cost + http_cost + https_cost
+    return {
+        "transfer_gb": transfer_gb, "transfer_cost": round(transfer_cost, 2),
+        "http_requests": http_requests, "http_cost": round(http_cost, 4),
+        "https_requests": https_requests, "https_cost": round(https_cost, 4),
+        "total_monthly": round(total, 2),
+        "note": "Prices based on US/Europe edge locations.",
+    }
+
+
+# ── DynamoDB pricing ──────────────────────────────────────────
+
+def _calculate_dynamodb(mode="on-demand", write_units=0, read_units=0, storage_gb=0,
+                        wcu=0, rcu=0):
+    storage_cost = storage_gb * 0.25
+    if mode == "on-demand":
+        write_cost = (write_units / 1_000_000) * 1.25
+        read_cost = (read_units / 1_000_000) * 0.25
+        return {
+            "mode": "on-demand", "write_request_units": write_units, "read_request_units": read_units,
+            "write_cost": round(write_cost, 4), "read_cost": round(read_cost, 4),
+            "storage_gb": storage_gb, "storage_cost": round(storage_cost, 2),
+            "total_monthly": round(write_cost + read_cost + storage_cost, 2),
+            "note": "On-Demand: $1.25/M WRU, $0.25/M RRU. us-east-1.",
+        }
+    else:
+        write_cost = wcu * 0.00065 * 730
+        read_cost = rcu * 0.00013 * 730
+        return {
+            "mode": "provisioned", "wcu": wcu, "rcu": rcu,
+            "write_cost": round(write_cost, 2), "read_cost": round(read_cost, 2),
+            "storage_gb": storage_gb, "storage_cost": round(storage_cost, 2),
+            "total_monthly": round(write_cost + read_cost + storage_cost, 2),
+            "note": "Provisioned: $0.00065/WCU-hr, $0.00013/RCU-hr. us-east-1.",
+        }
+
+
+# ── NAT Gateway pricing ──────────────────────────────────────
+
+def _calculate_nat_gateway(data_processed_gb=0, hours=730):
+    fixed_cost = hours * 0.045
+    data_cost = data_processed_gb * 0.045
+    total = fixed_cost + data_cost
+    return {
+        "hours": hours, "fixed_cost": round(fixed_cost, 2),
+        "data_processed_gb": data_processed_gb, "data_cost": round(data_cost, 2),
+        "total_monthly": round(total, 2),
+        "note": "$0.045/hr + $0.045/GB processed. us-east-1.",
+    }
+
+
+# ── ELB pricing ───────────────────────────────────────────────
+
+def _calculate_elb(elb_type="alb", hours=730, lcu=0, data_processed_gb=0):
+    rates = {"alb": 0.0225, "nlb": 0.0225, "clb": 0.025}
+    lcu_rates = {"alb": 0.008, "nlb": 0.006, "clb": 0.008}
+    rate = rates.get(elb_type)
+    if not rate:
+        return {"error": f"Unknown ELB type '{elb_type}'. Valid: alb, nlb, clb"}
+    fixed_cost = hours * rate
+    if elb_type == "clb":
+        usage_cost = data_processed_gb * lcu_rates[elb_type]
+    else:
+        usage_cost = lcu * lcu_rates[elb_type] * hours
+    total = fixed_cost + usage_cost
+    return {
+        "elb_type": elb_type, "hours": hours,
+        "fixed_cost": round(fixed_cost, 2), "usage_cost": round(usage_cost, 2),
+        "total_monthly": round(total, 2),
+        "note": "us-east-1. LCU/NLCU usage varies by traffic pattern.",
+    }
+
+
+# ── SQS pricing ───────────────────────────────────────────────
+
+def _calculate_sqs(requests=0, queue_type="standard"):
+    free = 1_000_000
+    rate = 0.40 if queue_type == "standard" else 0.50
+    paid = max(0, requests - free)
+    cost = (paid / 1_000_000) * rate
+    return {
+        "queue_type": queue_type, "requests": requests,
+        "free_tier": free, "billable_requests": paid,
+        "total_monthly": round(cost, 4),
+        "note": f"${rate}/M requests after 1M free. us-east-1.",
+    }
+
+
+# ── SNS pricing ───────────────────────────────────────────────
+
+def _calculate_sns(publishes=0, http_deliveries=0, sms_messages=0, sms_rate=0.00645):
+    free_publishes = 1_000_000
+    publish_cost = max(0, publishes - free_publishes) / 1_000_000 * 0.50
+    http_cost = (http_deliveries / 100_000) * 0.06
+    sms_cost = sms_messages * sms_rate
+    total = publish_cost + http_cost + sms_cost
+    return {
+        "publishes": publishes, "publish_cost": round(publish_cost, 4),
+        "http_deliveries": http_deliveries, "http_cost": round(http_cost, 4),
+        "sms_messages": sms_messages, "sms_cost": round(sms_cost, 2),
+        "total_monthly": round(total, 2),
+        "note": "1M publishes free/mo. SMS rate varies by country (default US $0.00645).",
+    }
+
+
+# ── Kinesis Data Streams pricing ──────────────────────────────
+
+def _calculate_kinesis(mode="on-demand", data_in_gb=0, data_out_gb=0,
+                       shards=0, hours=730, enhanced_fan_out_consumers=0):
+    if mode == "on-demand":
+        in_cost = data_in_gb * 0.08
+        out_cost = data_out_gb * 0.04
+        total = in_cost + out_cost
+        return {
+            "mode": "on-demand", "data_in_gb": data_in_gb, "data_out_gb": data_out_gb,
+            "ingest_cost": round(in_cost, 2), "retrieval_cost": round(out_cost, 2),
+            "total_monthly": round(total, 2),
+            "note": "On-Demand: $0.08/GB in, $0.04/GB out. us-east-1.",
+        }
+    else:
+        shard_cost = shards * 0.015 * hours
+        efo_cost = enhanced_fan_out_consumers * shards * 0.015 * hours + data_out_gb * 0.013
+        total = shard_cost + efo_cost
+        return {
+            "mode": "provisioned", "shards": shards,
+            "shard_cost": round(shard_cost, 2), "efo_cost": round(efo_cost, 2),
+            "total_monthly": round(total, 2),
+            "note": "Provisioned: $0.015/shard-hr. us-east-1.",
+        }
+
+
+# ── EFS pricing ───────────────────────────────────────────────
+
+EFS_PRICING = {
+    "Standard":            {"storage": 0.30},
+    "Infrequent Access":   {"storage": 0.016, "read_per_gb": 0.01},
+    "Archive":             {"storage": 0.008, "read_per_gb": 0.03},
+}
+
+
+def _calculate_efs(storage_gb, storage_class="Standard", read_gb=0, write_gb=0):
+    p = EFS_PRICING.get(storage_class)
+    if not p:
+        return {"error": f"Unknown EFS class '{storage_class}'. Valid: {list(EFS_PRICING.keys())}"}
+    storage_cost = storage_gb * p["storage"]
+    read_cost = read_gb * p.get("read_per_gb", 0)
+    write_cost = write_gb * 0.06 if storage_class != "Standard" else 0
+    total = storage_cost + read_cost + write_cost
+    return {
+        "storage_class": storage_class, "storage_gb": storage_gb,
+        "storage_cost": round(storage_cost, 2),
+        "read_cost": round(read_cost, 2), "write_cost": round(write_cost, 2),
+        "total_monthly": round(total, 2),
+        "note": "us-east-1. Elastic throughput: $0.04/GB read, $0.06/GB write (separate).",
+    }
+
+
+# ── Route 53 pricing ─────────────────────────────────────────
+
+def _calculate_route53(hosted_zones=1, queries_million=0, health_checks=0):
+    zone_cost = min(hosted_zones, 25) * 0.50 + max(0, hosted_zones - 25) * 0.10
+    query_cost = queries_million * 0.40
+    health_cost = health_checks * 0.50
+    total = zone_cost + query_cost + health_cost
+    return {
+        "hosted_zones": hosted_zones, "zone_cost": round(zone_cost, 2),
+        "queries_million": queries_million, "query_cost": round(query_cost, 2),
+        "health_checks": health_checks, "health_cost": round(health_cost, 2),
+        "total_monthly": round(total, 2),
+        "note": "$0.50/zone (first 25), $0.40/M queries, $0.50/health check. us-east-1.",
+    }
+
+
+# ── Athena pricing ────────────────────────────────────────────
+
+def _calculate_athena(data_scanned_tb=0):
+    cost = data_scanned_tb * 5.00
+    return {
+        "data_scanned_tb": data_scanned_tb,
+        "total_monthly": round(cost, 2),
+        "note": "$5.00/TB scanned. Min 10MB/query. Use partitioning + columnar formats to reduce cost.",
+    }
+
+
+# ── Glue pricing ─────────────────────────────────────────────
+
+def _calculate_glue(dpu_hours=0, crawler_dpu_hours=0, catalog_objects=0):
+    job_cost = dpu_hours * 0.44
+    crawler_cost = crawler_dpu_hours * 0.44
+    free_catalog = 1_000_000
+    catalog_cost = max(0, catalog_objects - free_catalog) / 100_000 * 1.00
+    total = job_cost + crawler_cost + catalog_cost
+    return {
+        "dpu_hours": dpu_hours, "job_cost": round(job_cost, 2),
+        "crawler_dpu_hours": crawler_dpu_hours, "crawler_cost": round(crawler_cost, 2),
+        "catalog_objects": catalog_objects, "catalog_cost": round(catalog_cost, 2),
+        "total_monthly": round(total, 2),
+        "note": "$0.44/DPU-hr. First 1M catalog objects free.",
+    }
+
+
+# ── MSK pricing ──────────────────────────────────────────────
+
+MSK_BROKER_PRICING = {
+    "kafka.t3.small": 0.0456, "kafka.m5.large": 0.21, "kafka.m5.xlarge": 0.42,
+    "kafka.m5.2xlarge": 0.84, "kafka.m5.4xlarge": 1.68, "kafka.m5.8xlarge": 3.36,
+    "kafka.m5.12xlarge": 5.04, "kafka.m5.16xlarge": 6.72, "kafka.m5.24xlarge": 10.08,
+}
+
+
+def _calculate_msk(mode="provisioned", broker_type="kafka.m5.large", broker_count=3,
+                   storage_gb=0, serverless_partitions=0, serverless_in_gb=0, serverless_out_gb=0):
+    if mode == "serverless":
+        partition_cost = serverless_partitions * 0.01 * 730
+        in_cost = serverless_in_gb * 0.10
+        out_cost = serverless_out_gb * 0.05
+        total = partition_cost + in_cost + out_cost
+        return {
+            "mode": "serverless", "partitions": serverless_partitions,
+            "partition_cost": round(partition_cost, 2),
+            "ingest_cost": round(in_cost, 2), "retrieval_cost": round(out_cost, 2),
+            "total_monthly": round(total, 2),
+            "note": "Serverless: $0.01/partition-hr + $0.10/GB in + $0.05/GB out.",
+        }
+    rate = MSK_BROKER_PRICING.get(broker_type)
+    if not rate:
+        return {"error": f"Unknown broker type '{broker_type}'. Valid: {list(MSK_BROKER_PRICING.keys())}"}
+    broker_cost = broker_count * rate * 730
+    storage_cost = storage_gb * 0.10
+    total = broker_cost + storage_cost
+    return {
+        "mode": "provisioned", "broker_type": broker_type, "broker_count": broker_count,
+        "broker_cost": round(broker_cost, 2),
+        "storage_gb": storage_gb, "storage_cost": round(storage_cost, 2),
+        "total_monthly": round(total, 2),
+        "note": "us-east-1. Storage $0.10/GB-mo.",
+    }
+
+
+# ── API Gateway pricing ──────────────────────────────────────
+
+def _calculate_api_gateway(api_type="rest", requests=0, message_count=0, connection_minutes=0):
+    if api_type == "rest":
+        if requests <= 333_000_000:
+            cost = (requests / 1_000_000) * 3.50
+        else:
+            cost = 333 * 3.50 + ((requests - 333_000_000) / 1_000_000) * 2.80
+        return {"api_type": "REST", "requests": requests, "total_monthly": round(cost, 2),
+                "note": "$3.50/M (first 333M), $2.80/M after. us-east-1."}
+    elif api_type == "http":
+        if requests <= 300_000_000:
+            cost = (requests / 1_000_000) * 1.00
+        else:
+            cost = 300 * 1.00 + ((requests - 300_000_000) / 1_000_000) * 0.90
+        return {"api_type": "HTTP", "requests": requests, "total_monthly": round(cost, 2),
+                "note": "$1.00/M (first 300M), $0.90/M after. us-east-1."}
+    elif api_type == "websocket":
+        msg_cost = (message_count / 1_000_000) * 1.00
+        conn_cost = (connection_minutes / 1_000_000) * 0.25
+        total = msg_cost + conn_cost
+        return {"api_type": "WebSocket", "messages": message_count, "connection_minutes": connection_minutes,
+                "message_cost": round(msg_cost, 2), "connection_cost": round(conn_cost, 2),
+                "total_monthly": round(total, 2), "note": "$1.00/M messages + $0.25/M conn-min."}
+    return {"error": f"Unknown API type '{api_type}'. Valid: rest, http, websocket"}
+
+
 # ── MCP Tool wrappers ──────────────────────────────────────────
 
 @mcp.tool
@@ -474,6 +813,140 @@ def list_bedrock_models() -> dict:
     Prices are manually maintained since AWS Price List API has delays for Bedrock.
     """
     return _list_bedrock_models()
+
+
+@mcp.tool
+def calculate_ebs(
+    volume_type: str, size_gb: float, iops: int = 0,
+    throughput_mbps: int = 0, snapshot_gb: float = 0,
+) -> dict:
+    """Calculate EBS volume monthly cost.
+
+    Types: gp3 (default, 3000 IOPS + 125 MB/s free), gp2, io1, io2, st1, sc1.
+    """
+    return _calculate_ebs(volume_type, size_gb, iops, throughput_mbps, snapshot_gb)
+
+
+@mcp.tool
+def calculate_data_transfer(
+    egress_gb: float = 0, cross_az_gb: float = 0, inter_region_gb: float = 0,
+) -> dict:
+    """Calculate AWS data transfer cost.
+
+    Ingress is free. First 100GB egress/mo free. Cross-AZ is $0.01/GB each way.
+    """
+    return _calculate_data_transfer(egress_gb, cross_az_gb, inter_region_gb)
+
+
+@mcp.tool
+def calculate_cloudfront(
+    transfer_gb: float = 0, http_requests: int = 0, https_requests: int = 0,
+) -> dict:
+    """Calculate CloudFront CDN monthly cost.
+
+    Tiered data transfer pricing + per-10K request fees.
+    """
+    return _calculate_cloudfront(transfer_gb, http_requests, https_requests)
+
+
+@mcp.tool
+def calculate_dynamodb(
+    mode: str = "on-demand", write_units: int = 0, read_units: int = 0,
+    storage_gb: float = 0, wcu: int = 0, rcu: int = 0,
+) -> dict:
+    """Calculate DynamoDB monthly cost.
+
+    Modes: 'on-demand' (WRU/RRU) or 'provisioned' (WCU/RCU).
+    """
+    return _calculate_dynamodb(mode, write_units, read_units, storage_gb, wcu, rcu)
+
+
+@mcp.tool
+def calculate_nat_gateway(data_processed_gb: float = 0, hours: int = 730) -> dict:
+    """Calculate NAT Gateway monthly cost. $0.045/hr + $0.045/GB processed."""
+    return _calculate_nat_gateway(data_processed_gb, hours)
+
+
+@mcp.tool
+def calculate_elb(
+    elb_type: str = "alb", hours: int = 730, lcu: float = 0, data_processed_gb: float = 0,
+) -> dict:
+    """Calculate ELB monthly cost. Types: alb, nlb, clb."""
+    return _calculate_elb(elb_type, hours, lcu, data_processed_gb)
+
+
+@mcp.tool
+def calculate_sqs(requests: int = 0, queue_type: str = "standard") -> dict:
+    """Calculate SQS monthly cost. Types: 'standard' ($0.40/M) or 'fifo' ($0.50/M). 1M free/mo."""
+    return _calculate_sqs(requests, queue_type)
+
+
+@mcp.tool
+def calculate_sns(
+    publishes: int = 0, http_deliveries: int = 0,
+    sms_messages: int = 0, sms_rate: float = 0.00645,
+) -> dict:
+    """Calculate SNS monthly cost. 1M publishes free/mo. SMS rate varies by country."""
+    return _calculate_sns(publishes, http_deliveries, sms_messages, sms_rate)
+
+
+@mcp.tool
+def calculate_kinesis(
+    mode: str = "on-demand", data_in_gb: float = 0, data_out_gb: float = 0,
+    shards: int = 0, hours: int = 730, enhanced_fan_out_consumers: int = 0,
+) -> dict:
+    """Calculate Kinesis Data Streams monthly cost. Modes: 'on-demand' or 'provisioned'."""
+    return _calculate_kinesis(mode, data_in_gb, data_out_gb, shards, hours, enhanced_fan_out_consumers)
+
+
+@mcp.tool
+def calculate_efs(
+    storage_gb: float, storage_class: str = "Standard", read_gb: float = 0, write_gb: float = 0,
+) -> dict:
+    """Calculate EFS monthly cost. Classes: Standard, Infrequent Access, Archive."""
+    return _calculate_efs(storage_gb, storage_class, read_gb, write_gb)
+
+
+@mcp.tool
+def calculate_route53(
+    hosted_zones: int = 1, queries_million: float = 0, health_checks: int = 0,
+) -> dict:
+    """Calculate Route 53 monthly cost. $0.50/zone, $0.40/M queries, $0.50/health check."""
+    return _calculate_route53(hosted_zones, queries_million, health_checks)
+
+
+@mcp.tool
+def calculate_athena(data_scanned_tb: float = 0) -> dict:
+    """Calculate Athena monthly cost. $5.00/TB scanned."""
+    return _calculate_athena(data_scanned_tb)
+
+
+@mcp.tool
+def calculate_glue(
+    dpu_hours: float = 0, crawler_dpu_hours: float = 0, catalog_objects: int = 0,
+) -> dict:
+    """Calculate Glue monthly cost. $0.44/DPU-hr. First 1M catalog objects free."""
+    return _calculate_glue(dpu_hours, crawler_dpu_hours, catalog_objects)
+
+
+@mcp.tool
+def calculate_msk(
+    mode: str = "provisioned", broker_type: str = "kafka.m5.large", broker_count: int = 3,
+    storage_gb: float = 0, serverless_partitions: int = 0,
+    serverless_in_gb: float = 0, serverless_out_gb: float = 0,
+) -> dict:
+    """Calculate MSK (Kafka) monthly cost. Modes: 'provisioned' or 'serverless'."""
+    return _calculate_msk(mode, broker_type, broker_count, storage_gb,
+                          serverless_partitions, serverless_in_gb, serverless_out_gb)
+
+
+@mcp.tool
+def calculate_api_gateway(
+    api_type: str = "rest", requests: int = 0,
+    message_count: int = 0, connection_minutes: int = 0,
+) -> dict:
+    """Calculate API Gateway monthly cost. Types: rest, http, websocket."""
+    return _calculate_api_gateway(api_type, requests, message_count, connection_minutes)
 
 
 if __name__ == "__main__":

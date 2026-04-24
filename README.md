@@ -10,15 +10,16 @@ English | [中文](README_CN.md)
   <img src="https://img.shields.io/badge/python-3.8+-blue.svg" alt="Python 3.8+">
   <img src="https://img.shields.io/badge/services-19-orange.svg" alt="19 Services">
   <img src="https://img.shields.io/badge/regions-34-green.svg" alt="34 Regions">
-  <img src="https://img.shields.io/badge/tests-200%20passed-brightgreen.svg" alt="200 Tests">
+  <img src="https://img.shields.io/badge/tests-250%20passed-brightgreen.svg" alt="250 Tests">
   <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License">
 </p>
 
 > Query real-time AWS pricing for **19 services** × **34 regions** × **6 RI options** with a single command.
+> Plus **15 usage-based calculators** (S3, Lambda, DynamoDB, CloudFront, EBS, etc.) via built-in formulas.
 
 ```bash
 pip3 install boto3
-python3 pricing_tool.py --version                                              # v2.0.2
+python3 pricing_tool.py --version                                              # v2.1.0
 python3 pricing_tool.py --profile <your-profile> query ec2 -t c6g.xlarge -r tokyo
 ```
 
@@ -82,7 +83,7 @@ Add to your MCP client config (e.g. `~/.kiro/settings/mcp.json`, `.claude/settin
 }
 ```
 
-### Available MCP Tools (12)
+### Available MCP Tools (27)
 
 | Tool | Description |
 |------|-------------|
@@ -96,8 +97,23 @@ Add to your MCP client config (e.g. `~/.kiro/settings/mcp.json`, `.claude/settin
 | `ri_analysis` | RI break-even analysis (6 options with upfront/monthly/breakeven) |
 | `calculate_s3` | S3 cost calculator (7 storage classes, egress, requests) |
 | `calculate_lambda` | Lambda cost calculator (free tier, x86 vs ARM) |
-| `calculate_bedrock` | 🆕 Bedrock model cost calculator (20 models, 4 tiers, 10 providers) |
-| `list_bedrock_models` | 🆕 List all Bedrock models with reference pricing |
+| `calculate_bedrock` | Bedrock model cost calculator (20 models, 4 tiers, 10 providers) |
+| `list_bedrock_models` | List all Bedrock models with reference pricing |
+| `calculate_ebs` | EBS volume cost (gp3/gp2/io1/io2/st1/sc1, IOPS, throughput) |
+| `calculate_data_transfer` | Data transfer cost (egress tiers, cross-AZ, inter-region) |
+| `calculate_cloudfront` | CloudFront CDN cost (tiered transfer, HTTP/HTTPS requests) |
+| `calculate_dynamodb` | DynamoDB cost (on-demand WRU/RRU or provisioned WCU/RCU) |
+| `calculate_nat_gateway` | NAT Gateway cost (fixed hourly + data processing) |
+| `calculate_elb` | ELB cost (ALB/NLB/CLB, fixed + LCU usage) |
+| `calculate_sqs` | SQS cost (standard/FIFO, 1M free tier) |
+| `calculate_sns` | SNS cost (publishes, HTTP delivery, SMS) |
+| `calculate_kinesis` | Kinesis Data Streams cost (on-demand or provisioned) |
+| `calculate_efs` | EFS cost (Standard/IA/Archive, read/write) |
+| `calculate_route53` | Route 53 cost (zones, queries, health checks) |
+| `calculate_athena` | Athena cost ($5/TB scanned) |
+| `calculate_glue` | Glue cost (DPU-hours, crawlers, catalog) |
+| `calculate_msk` | MSK/Kafka cost (provisioned brokers or serverless) |
+| `calculate_api_gateway` | API Gateway cost (REST/HTTP/WebSocket) |
 
 ### MCP vs AI Skill
 
@@ -481,7 +497,7 @@ for p in products:
 ```
 aws-pricing-tool/
 ├── pricing_tool.py    # Main program (single file, standalone)
-├── mcp_server.py      # MCP Server (12 tools, works with all MCP clients)
+├── mcp_server.py      # MCP Server (27 tools, works with all MCP clients)
 ├── SKILL.md           # Kiro Skill definition (template)
 ├── CLAUDE_COMMAND.md  # Claude Code slash command (template)
 ├── openclaw-skill/    # OpenClaw skill (skill.md + index.js)
@@ -490,7 +506,7 @@ aws-pricing-tool/
 ├── conftest.py        # Test fixtures (mock AWS API responses)
 ├── test_unit.py       # Unit tests (81)
 ├── test_e2e.py        # End-to-end tests (35)
-├── test_mcp.py        # MCP Server tests (84)
+├── test_mcp.py        # MCP Server tests (134)
 ├── logo.png           # Project logo
 ├── README.md          # This document (English)
 ├── README_CN.md       # Chinese documentation
@@ -501,7 +517,7 @@ aws-pricing-tool/
 
 ```bash
 pip3 install pytest
-python3 -m pytest -v                    # Run all 200 tests
+python3 -m pytest -v                    # Run all 250 tests
 python3 -m pytest test_unit.py -v       # Unit tests only
 python3 -m pytest test_e2e.py -v        # E2E tests only
 python3 -m pytest -k "extract_pricing"  # Filter by name
@@ -513,7 +529,7 @@ Test coverage:
 |------|-------|----------|
 | `test_unit.py` | 81 | Region resolution, cache R/W, pricing extraction (OD + 6 RI), dedup/sort, formatting, 19 service filters, JSON/CSV output, color, cmd_refresh/cache_info, query_products error handling, ElastiCache |
 | `test_e2e.py` | 35 | CLI arg parsing, --version/--help, query/batch/compare/list JSON/CSV/table output, cache commands, error handling, RDS with engine, ElastiCache, regions command, batch multi-type |
-| `test_mcp.py` | 84 | MCP tool registration, query/compare/batch/list, Graviton mapping & recommendation, RI break-even analysis, S3 calculator (7 classes), Lambda calculator (free tier, ARM vs x86), Bedrock calculator (20 models, 4 tiers, fuzzy match), Bedrock model listing, edge cases for all calculators |
+| `test_mcp.py` | 134 | MCP tool registration, query/compare/batch/list, Graviton mapping & recommendation, RI break-even analysis, S3 calculator (7 classes), Lambda calculator (free tier, ARM vs x86), Bedrock calculator (20 models, 4 tiers, fuzzy match), Bedrock model listing, edge cases for all calculators |
 
 E2E tests invoke the real CLI via subprocess with a mock runner injecting simulated API responses — no AWS credentials needed.
 
@@ -529,7 +545,7 @@ E2E tests invoke the real CLI via subprocess with a mock runner injecting simula
 
 | Version | Date | Changes |
 |---------|------|---------|
-| v2.0.2 | 2025-04-24 | Fix fastmcp v3 compatibility; Python 3.8 type hint fix (`typing.List[Dict]`); 200 tests (84 MCP + 81 unit + 35 E2E); remove junk files; add ElastiCache fixture; edge case tests for S3/Lambda/Bedrock/Graviton/RI; fix Partial Upfront RI upfront=0 bug; add timestream to docs; RDS/ElastiCache E2E coverage |
+| v2.1.0 | 2025-04-24 | Fix fastmcp v3 compatibility; Python 3.8 type hint fix (`typing.List[Dict]`); MCP Server upgraded to 27 tools: +15 usage-based calculators (EBS, Data Transfer, CloudFront, DynamoDB, NAT Gateway, ELB, SQS, SNS, Kinesis, EFS, Route53, Athena, Glue, MSK, API Gateway); fix fastmcp v3 compat; fix Partial Upfront RI upfront=0 bug; Python 3.8 type hints; 250 tests (134 MCP + 81 unit + 35 E2E) |
 | v2.0.0 | 2025-03-13 | MCP Server upgraded to 12 tools: +`graviton_recommend` +`ri_analysis` +`calculate_s3` +`calculate_lambda` +`calculate_bedrock` +`list_bedrock_models`; 153 tests (60 MCP + 93 original); "pricing consultant" capabilities now callable via MCP |
 | v1.5.0 | 2025-03-13 | MCP Server (`mcp_server.py`) with 6 tools; works with Kiro/Claude Code/OpenClaw/Cursor/VS Code; 113 tests (20 MCP + 93 original) |
 | v1.3.0 | 2025-03-12 | OpenClaw skill support (`openclaw-skill/`); 3-platform AI Skill (Kiro + Claude Code + OpenClaw); `.gitignore` hardened for sensitive files |
