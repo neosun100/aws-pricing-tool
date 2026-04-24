@@ -18,7 +18,7 @@ English | [中文](README_CN.md)
 
 ```bash
 pip3 install boto3
-python3 pricing_tool.py --version                                              # v2.0.0
+python3 pricing_tool.py --version                                              # v2.0.1
 python3 pricing_tool.py --profile <your-profile> query ec2 -t c6g.xlarge -r tokyo
 ```
 
@@ -487,7 +487,7 @@ aws-pricing-tool/
 │   ├── skill.md       # OpenClaw skill specification
 │   └── index.js       # OpenClaw skill entry point
 ├── conftest.py        # Test fixtures (mock AWS API responses)
-├── test_unit.py       # Unit tests (66)
+├── test_unit.py       # Unit tests (79)
 ├── test_e2e.py        # End-to-end tests (27)
 ├── test_mcp.py        # MCP Server tests (60)
 ├── logo.png           # Project logo
@@ -500,7 +500,7 @@ aws-pricing-tool/
 
 ```bash
 pip3 install pytest
-python3 -m pytest -v                    # Run all 153 tests
+python3 -m pytest -v                    # Run all 186 tests
 python3 -m pytest test_unit.py -v       # Unit tests only
 python3 -m pytest test_e2e.py -v        # E2E tests only
 python3 -m pytest -k "extract_pricing"  # Filter by name
