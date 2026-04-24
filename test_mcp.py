@@ -16,10 +16,14 @@ from conftest import EC2_PRODUCT
 
 class TestToolRegistration:
     def test_tool_count(self):
-        assert len(mcp._tool_manager._tools) == 12
+        import asyncio
+        tools = asyncio.run(mcp.list_tools())
+        assert len(tools) == 12
 
     def test_tool_names(self):
-        names = set(mcp._tool_manager._tools.keys())
+        import asyncio
+        tools = asyncio.run(mcp.list_tools())
+        names = {t.name for t in tools}
         assert names == {
             "query_pricing", "compare_regions", "batch_compare",
             "list_types", "get_regions", "get_services",
@@ -372,3 +376,140 @@ class TestListBedrockModels:
         result = _list_bedrock_models()
         assert "source" in result
         assert "pricing_date" in result
+
+
+# ── Additional edge case tests (v2.0.1) ───────────────────────────
+
+class TestCalculateS3EdgeCases:
+    def test_all_storage_classes(self):
+        """Every S3 storage class should return valid results."""
+        for cls in S3_PRICING:
+            result = _calculate_s3(100, cls)
+            assert "total_monthly" in result, f"{cls} failed"
+            assert result["total_monthly"] >= 0
+
+    def test_large_egress_tiered(self):
+        """Egress > 10240 GB should use second tier pricing."""
+        result = _calculate_s3(1, "Standard", egress_gb=15000)
+        # (15000-100) free=100, paid=14900
+        # first 10140 * 0.09 = 912.6, remaining 4760 * 0.085 = 404.6
+        assert result["egress_cost"] == pytest.approx(912.6 + 404.6, rel=0.01)
+
+    def test_negative_storage_still_calculates(self):
+        """Negative storage should still compute (garbage in, garbage out)."""
+        result = _calculate_s3(-10, "Standard")
+        assert result["storage_cost"] < 0
+
+    def test_requests_only(self):
+        """Zero storage, only requests."""
+        result = _calculate_s3(0, "Standard", put_requests=10000, get_requests=50000)
+        assert result["storage_cost"] == 0
+        assert result["put_cost"] > 0
+        assert result["get_cost"] > 0
+
+
+class TestCalculateLambdaEdgeCases:
+    def test_exactly_free_tier(self):
+        """Exactly at free tier boundary should cost 0."""
+        # 1M invocations, 128MB, 3200ms → 400K GB-s exactly
+        result = _calculate_lambda(1_000_000, 3200, 128, "x86")
+        assert result["total_monthly"] == 0
+
+    def test_zero_invocations(self):
+        result = _calculate_lambda(0, 100, 128)
+        assert result["total_monthly"] == 0
+        assert result["gb_seconds"] == 0
+
+    def test_zero_duration(self):
+        result = _calculate_lambda(1_000_000, 0, 128)
+        assert result["gb_seconds"] == 0
+
+    def test_large_memory(self):
+        """10GB memory Lambda."""
+        result = _calculate_lambda(2_000_000, 1000, 10240, "arm")
+        assert result["gb_seconds"] > 0
+        assert result["total_monthly"] > 0
+
+
+class TestCalculateBedrockEdgeCases:
+    def test_case_insensitive(self):
+        result = _calculate_bedrock("Nova-Pro", 1000, 1000)
+        assert result["model"] == "nova-pro"
+
+    def test_whitespace_handling(self):
+        result = _calculate_bedrock("  nova-pro  ", 1000, 1000)
+        assert "error" not in result
+
+    def test_all_models_calculable(self):
+        """Every model in BEDROCK_PRICING should be calculable."""
+        for model in BEDROCK_PRICING:
+            result = _calculate_bedrock(model, 1_000_000, 1_000_000)
+            assert "error" not in result, f"{model} failed"
+            assert result["total_cost"] > 0
+
+    def test_unknown_tier_defaults_to_standard(self):
+        result = _calculate_bedrock("nova-pro", 1_000_000, 0, "unknown_tier")
+        assert result["input_price_per_1m"] == 0.8  # standard multiplier 1.0
+
+    def test_very_large_tokens(self):
+        result = _calculate_bedrock("nova-micro", 1_000_000_000, 1_000_000_000)
+        assert result["total_cost"] > 0
+
+
+class TestGravitonMapCompleteness:
+    def test_all_map_entries_produce_results(self):
+        """Every GRAVITON_MAP entry should produce a valid suggestion."""
+        for x86, arm in GRAVITON_MAP.items():
+            result = _suggest_graviton(f"{x86}.xlarge")
+            assert result == f"{arm}.xlarge", f"Map entry {x86}->{arm} failed"
+
+    def test_various_sizes(self):
+        """Graviton suggestion should work for all common sizes."""
+        for size in ["medium", "large", "xlarge", "2xlarge", "4xlarge", "8xlarge", "metal"]:
+            result = _suggest_graviton(f"c6i.{size}")
+            assert result == f"c7g.{size}"
+
+
+class TestRiAnalysisEdgeCases:
+    @patch("mcp_server._get_client")
+    def test_no_ri_terms(self, mock_client):
+        """Product with no RI terms should return empty options."""
+        from conftest import EC2_PRODUCT_2  # has empty Reserved
+        mock_client.return_value = MagicMock()
+        with patch("pricing_tool.query_products", return_value=[EC2_PRODUCT_2]):
+            result = _ri_analysis("ec2", "c6g.2xlarge", "tokyo")
+            assert result["options"] == []
+            assert result["on_demand_hourly"] > 0
+
+
+class TestCompareRegionsEdgeCases:
+    @patch("mcp_server._get_client")
+    def test_empty_regions_list(self, mock_client):
+        mock_client.return_value = MagicMock()
+        with patch("pricing_tool.query_products", return_value=[]):
+            result = _compare_regions("ec2", "c6g.xlarge", [])
+            assert "error" in result[0]
+
+    @patch("mcp_server._get_client")
+    def test_single_region(self, mock_client):
+        mock_client.return_value = MagicMock()
+        with patch("pricing_tool.query_products", return_value=[EC2_PRODUCT]):
+            result = _compare_regions("ec2", "c6g.xlarge", ["tokyo"])
+            assert len(result) == 1
+            assert result[0].get("cheapest") is True
+
+
+class TestBatchCompareEdgeCases:
+    @patch("mcp_server._get_client")
+    def test_empty_types_list(self, mock_client):
+        mock_client.return_value = MagicMock()
+        with patch("pricing_tool.query_products", return_value=[]):
+            result = _batch_compare("ec2", [], "tokyo")
+            assert "error" in result[0]
+
+    @patch("mcp_server._get_client")
+    def test_single_type(self, mock_client):
+        mock_client.return_value = MagicMock()
+        with patch("pricing_tool.query_products", return_value=[EC2_PRODUCT]):
+            result = _batch_compare("ec2", ["c6g.xlarge"], "tokyo")
+            assert len(result) == 1

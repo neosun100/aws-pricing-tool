@@ -2,12 +2,13 @@
 
 import json, os, tempfile, time
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 import pytest
 import pricing_tool as pt
 from conftest import (
     EC2_PRODUCT, EC2_PRODUCT_2, EC2_PRODUCT_ZERO, RDS_PRODUCT, EC2_PRODUCT_VIRGINIA,
+    ELASTICACHE_PRODUCT,
 )
 
 
@@ -141,6 +142,13 @@ class TestExtractPricing:
         r = pt.extract_pricing(RDS_PRODUCT)
         assert r["os"] == "Aurora MySQL"
         assert r["price_per_hour"] == pytest.approx(0.35)
+
+    def test_elasticache_engine_field(self):
+        r = pt.extract_pricing(ELASTICACHE_PRODUCT)
+        assert r["os"] == "Redis"
+        assert r["instance_type"] == "cache.r6g.large"
+        assert r["price_per_hour"] == pytest.approx(0.261)
+        assert r["ri_1yr_no_upfront"] == pytest.approx(0.178)
 
     def test_empty_product(self):
         r = pt.extract_pricing({})
@@ -403,3 +411,130 @@ class TestCmdRegions:
         out = capsys.readouterr().out
         assert "ap-northeast-1" in out
         assert "us-east-1" in out
+
+
+# ── cmd_refresh / cmd_cache_info ────────────────────────────────
+
+class TestCmdRefresh:
+    def test_refresh_clears_cache(self, tmp_path):
+        cache_dir = str(tmp_path / "cache")
+        os.makedirs(cache_dir)
+        for i in range(3):
+            with open(os.path.join(cache_dir, f"test_{i}.json"), "w") as f:
+                f.write("{}")
+        with patch.object(pt, "CACHE_DIR", cache_dir):
+            args = SimpleNamespace()
+            pt.cmd_refresh(args)
+        remaining = [f for f in os.listdir(cache_dir) if f.endswith(".json")]
+        assert len(remaining) == 0
+
+    def test_refresh_no_cache_dir(self, capsys):
+        with patch.object(pt, "CACHE_DIR", "/nonexistent/path"):
+            pt.cmd_refresh(SimpleNamespace())
+        assert "No cache" in capsys.readouterr().out
+
+
+class TestCmdCacheInfo:
+    def test_cache_info_with_files(self, tmp_path, capsys):
+        cache_dir = str(tmp_path / "cache")
+        os.makedirs(cache_dir)
+        with open(os.path.join(cache_dir, "test.json"), "w") as f:
+            f.write('{"data": 1}')
+        with patch.object(pt, "CACHE_DIR", cache_dir):
+            pt.cmd_cache_info(SimpleNamespace())
+        out = capsys.readouterr().out
+        assert "Files: 1" in out
+        assert "TTL:" in out
+
+    def test_cache_info_no_dir(self, capsys):
+        with patch.object(pt, "CACHE_DIR", "/nonexistent"):
+            pt.cmd_cache_info(SimpleNamespace())
+        assert "No cache" in capsys.readouterr().out
+
+
+# ── query_products error handling ───────────────────────────────
+
+class TestQueryProducts:
+    def test_api_exception_returns_empty(self):
+        mock_client = MagicMock()
+        mock_client.get_paginator.return_value.paginate.side_effect = Exception("API error")
+        result = pt.query_products(mock_client, "AmazonEC2", {"location": "test"}, use_cache=False, quiet=True)
+        assert result == []
+
+    def test_caches_results(self, tmp_path):
+        mock_client = MagicMock()
+        mock_client.get_paginator.return_value.paginate.return_value = [
+            {"PriceList": [json.dumps(EC2_PRODUCT)]}
+        ]
+        cache_path = str(tmp_path / "test.json")
+        with patch.object(pt, "_cache_key", return_value=cache_path):
+            with patch.object(pt, "cache_get", return_value=None):
+                result = pt.query_products(mock_client, "AmazonEC2", {}, use_cache=True, quiet=True)
+        assert len(result) == 1
+        # Verify cache was written
+        assert os.path.exists(cache_path)
+
+    def test_returns_cached_when_available(self):
+        cached_data = [{"cached": True}]
+        with patch.object(pt, "cache_get", return_value=cached_data):
+            result = pt.query_products(MagicMock(), "AmazonEC2", {}, use_cache=True, quiet=True)
+        assert result == cached_data
+
+    def test_empty_results_not_cached(self, tmp_path):
+        mock_client = MagicMock()
+        mock_client.get_paginator.return_value.paginate.return_value = [{"PriceList": []}]
+        cache_path = str(tmp_path / "empty.json")
+        with patch.object(pt, "_cache_key", return_value=cache_path):
+            with patch.object(pt, "cache_get", return_value=None):
+                result = pt.query_products(mock_client, "AmazonEC2", {}, use_cache=True, quiet=True)
+        assert result == []
+        assert not os.path.exists(cache_path)
+
+
+# ── list_instance_types ─────────────────────────────────────────
+
+class TestListInstanceTypes:
+    def test_api_exception_returns_empty(self):
+        mock_client = MagicMock()
+        mock_client.get_paginator.return_value.paginate.side_effect = Exception("fail")
+        result = pt.list_instance_types(mock_client, "AmazonEC2", "test", use_cache=False)
+        assert result == []
+
+    def test_returns_sorted(self):
+        mock_client = MagicMock()
+        mock_client.get_paginator.return_value.paginate.return_value = [
+            {"PriceList": [
+                json.dumps({"product": {"attributes": {"instanceType": "m5.xlarge"}}}),
+                json.dumps({"product": {"attributes": {"instanceType": "c5.large"}}}),
+                json.dumps({"product": {"attributes": {"instanceType": "c5.large"}}}),  # dup
+            ]}
+        ]
+        with patch.object(pt, "cache_get", return_value=None):
+            with patch.object(pt, "cache_put"):
+                result = pt.list_instance_types(mock_client, "AmazonEC2", "test", use_cache=True)
+        assert result == ["c5.large", "m5.xlarge"]  # sorted, deduped
+
+
+# ── extract_pricing edge cases ──────────────────────────────────
+
+class TestExtractPricingEdgeCases:
+    def test_invalid_price_value(self):
+        """Non-numeric price should be skipped."""
+        product = {
+            "product": {"attributes": {"instanceType": "test"}},
+            "terms": {"OnDemand": {"OD1": {"priceDimensions": {
+                "D1": {"unit": "Hrs", "pricePerUnit": {"USD": "invalid"}}
+            }}}, "Reserved": {}},
+        }
+        r = pt.extract_pricing(product)
+        assert "price_per_hour" not in r
+
+    def test_missing_usd_field(self):
+        product = {
+            "product": {"attributes": {"instanceType": "test"}},
+            "terms": {"OnDemand": {"OD1": {"priceDimensions": {
+                "D1": {"unit": "Hrs", "pricePerUnit": {}}
+            }}}, "Reserved": {}},
+        }
+        r = pt.extract_pricing(product)
+        assert "price_per_hour" not in r

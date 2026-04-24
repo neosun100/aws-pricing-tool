@@ -181,3 +181,37 @@ EC2_PRODUCT_VIRGINIA = {
         },
     },
 }
+
+
+# ElastiCache product for engine filter tests
+ELASTICACHE_PRODUCT = {
+    "product": {
+        "productFamily": "Cache Instance",
+        "attributes": {
+            "instanceType": "cache.r6g.large",
+            "vcpu": "2",
+            "memory": "13.07 GiB",
+            "cacheEngine": "Redis",
+            "regionCode": "ap-northeast-1",
+            "location": "Asia Pacific (Tokyo)",
+            "networkPerformance": "Up to 10 Gigabit",
+        },
+    },
+    "terms": {
+        "OnDemand": {
+            "OD1": {
+                "priceDimensions": {
+                    "D1": {"unit": "Hrs", "pricePerUnit": {"USD": "0.2610"}, "description": ""}
+                }
+            }
+        },
+        "Reserved": {
+            "RI1": {
+                "termAttributes": {"LeaseContractLength": "1yr", "PurchaseOption": "No Upfront"},
+                "priceDimensions": {
+                    "D1": {"unit": "Hrs", "pricePerUnit": {"USD": "0.1780"}, "description": ""},
+                },
+            },
+        },
+    },
+}

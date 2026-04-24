@@ -16,6 +16,11 @@ venv/
 .DS_Store
 logo_v1.png
 
+# Accidentally created junk files
+key
+the
+security
+
 # Sensitive files
 *.pem
 *.key
