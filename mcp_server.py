@@ -4,6 +4,8 @@ Exposes pricing_tool.py functions as MCP tools for Kiro / Claude Code / OpenClaw
 Run: python mcp_server.py  (stdio mode, for MCP client integration)
 """
 
+from typing import Dict, List
+
 import os
 from types import SimpleNamespace
 from fastmcp import FastMCP
@@ -346,7 +348,7 @@ def _list_bedrock_models():
 def query_pricing(
     service: str, instance_type: str, region: str,
     engine: str = "", deployment: str = "", operating_system: str = "Linux",
-) -> list[dict]:
+) -> List[Dict]:
     """Query real-time pricing for an AWS instance type.
 
     Returns On-Demand price + 6 Reserved Instance options.
@@ -359,9 +361,9 @@ def query_pricing(
 
 @mcp.tool
 def compare_regions(
-    service: str, instance_type: str, regions: list[str],
+    service: str, instance_type: str, regions: List[str],
     engine: str = "", operating_system: str = "Linux",
-) -> list[dict]:
+) -> List[Dict]:
     """Compare pricing for the same instance type across multiple regions.
 
     Pass regions as a list: ["tokyo", "virginia", "singapore"].
@@ -372,9 +374,9 @@ def compare_regions(
 
 @mcp.tool
 def batch_compare(
-    service: str, instance_types: list[str], region: str,
+    service: str, instance_types: List[str], region: str,
     engine: str = "", operating_system: str = "Linux",
-) -> list[dict]:
+) -> List[Dict]:
     """Compare pricing for multiple instance types in the same region.
 
     Pass types as a list: ["c6g.xlarge", "c6g.2xlarge", "c6g.4xlarge"].
@@ -383,7 +385,7 @@ def batch_compare(
 
 
 @mcp.tool
-def list_types(service: str, region: str, filter_keyword: str = "") -> list[str]:
+def list_types(service: str, region: str, filter_keyword: str = "") -> List[str]:
     """List available instance types for a service in a specific region.
 
     Optionally filter by keyword (e.g. "c6g", "db.r6g").
@@ -392,13 +394,13 @@ def list_types(service: str, region: str, filter_keyword: str = "") -> list[str]
 
 
 @mcp.tool
-def get_regions() -> list[dict]:
+def get_regions() -> List[Dict]:
     """List all 34 supported AWS regions with codes and names."""
     return _get_regions()
 
 
 @mcp.tool
-def get_services() -> list[dict]:
+def get_services() -> List[Dict]:
     """List all 19 supported AWS services with their service codes."""
     return _get_services()
 

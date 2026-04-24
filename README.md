@@ -10,7 +10,7 @@ English | [中文](README_CN.md)
   <img src="https://img.shields.io/badge/python-3.8+-blue.svg" alt="Python 3.8+">
   <img src="https://img.shields.io/badge/services-19-orange.svg" alt="19 Services">
   <img src="https://img.shields.io/badge/regions-34-green.svg" alt="34 Regions">
-  <img src="https://img.shields.io/badge/tests-153%20passed-brightgreen.svg" alt="153 Tests">
+  <img src="https://img.shields.io/badge/tests-186%20passed-brightgreen.svg" alt="186 Tests">
   <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License">
 </p>
 
@@ -18,7 +18,7 @@ English | [中文](README_CN.md)
 
 ```bash
 pip3 install boto3
-python3 pricing_tool.py --version                                              # v2.0.0
+python3 pricing_tool.py --version                                              # v2.0.1
 python3 pricing_tool.py --profile <your-profile> query ec2 -t c6g.xlarge -r tokyo
 ```
 
@@ -487,7 +487,7 @@ aws-pricing-tool/
 │   ├── skill.md       # OpenClaw skill specification
 │   └── index.js       # OpenClaw skill entry point
 ├── conftest.py        # Test fixtures (mock AWS API responses)
-├── test_unit.py       # Unit tests (66)
+├── test_unit.py       # Unit tests (79)
 ├── test_e2e.py        # End-to-end tests (27)
 ├── test_mcp.py        # MCP Server tests (60)
 ├── logo.png           # Project logo
@@ -500,7 +500,7 @@ aws-pricing-tool/
 
 ```bash
 pip3 install pytest
-python3 -m pytest -v                    # Run all 153 tests
+python3 -m pytest -v                    # Run all 186 tests
 python3 -m pytest test_unit.py -v       # Unit tests only
 python3 -m pytest test_e2e.py -v        # E2E tests only
 python3 -m pytest -k "extract_pricing"  # Filter by name
@@ -510,9 +510,9 @@ Test coverage:
 
 | File | Tests | Coverage |
 |------|-------|----------|
-| `test_unit.py` | 66 | Region resolution, cache R/W, pricing extraction (OD + 6 RI), dedup/sort, formatting, 19 service filters, JSON/CSV output, color |
+| `test_unit.py` | 79 | Region resolution, cache R/W, pricing extraction (OD + 6 RI), dedup/sort, formatting, 19 service filters, JSON/CSV output, color, cmd_refresh/cache_info, query_products error handling, ElastiCache |
 | `test_e2e.py` | 27 | CLI arg parsing, --version/--help, query/batch/compare/list JSON/CSV/table output, cache commands, error handling |
-| `test_mcp.py` | 60 | MCP tool registration, query/compare/batch/list, Graviton mapping & recommendation, RI break-even analysis, S3 calculator (7 classes), Lambda calculator (free tier, ARM vs x86), Bedrock calculator (20 models, 4 tiers, fuzzy match), Bedrock model listing |
+| `test_mcp.py` | 80 | MCP tool registration, query/compare/batch/list, Graviton mapping & recommendation, RI break-even analysis, S3 calculator (7 classes), Lambda calculator (free tier, ARM vs x86), Bedrock calculator (20 models, 4 tiers, fuzzy match), Bedrock model listing, edge cases for all calculators |
 
 E2E tests invoke the real CLI via subprocess with a mock runner injecting simulated API responses — no AWS credentials needed.
 
@@ -528,6 +528,7 @@ E2E tests invoke the real CLI via subprocess with a mock runner injecting simula
 
 | Version | Date | Changes |
 |---------|------|---------|
+| v2.0.1 | 2025-04-24 | Fix fastmcp v3 compatibility; Python 3.8 type hint fix (`typing.List[Dict]`); 186 tests (80 MCP + 79 unit + 27 E2E); remove junk files; add ElastiCache fixture; edge case tests for S3/Lambda/Bedrock/Graviton/RI |
 | v2.0.0 | 2025-03-13 | MCP Server upgraded to 12 tools: +`graviton_recommend` +`ri_analysis` +`calculate_s3` +`calculate_lambda` +`calculate_bedrock` +`list_bedrock_models`; 153 tests (60 MCP + 93 original); "pricing consultant" capabilities now callable via MCP |
 | v1.5.0 | 2025-03-13 | MCP Server (`mcp_server.py`) with 6 tools; works with Kiro/Claude Code/OpenClaw/Cursor/VS Code; 113 tests (20 MCP + 93 original) |
 | v1.3.0 | 2025-03-12 | OpenClaw skill support (`openclaw-skill/`); 3-platform AI Skill (Kiro + Claude Code + OpenClaw); `.gitignore` hardened for sensitive files |
