@@ -22,7 +22,7 @@ class TestCLIBasic:
     def test_version(self):
         out, _, rc = run("--version")
         assert rc == 0
-        assert "2.0.1" in out
+        assert "2.0.2" in out
 
     def test_help(self):
         out, _, rc = run("--help")
@@ -80,19 +80,38 @@ import json, sys, os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from unittest.mock import MagicMock, patch
-from conftest import EC2_PRODUCT, EC2_PRODUCT_2, EC2_PRODUCT_VIRGINIA, RDS_PRODUCT
+from conftest import EC2_PRODUCT, EC2_PRODUCT_2, EC2_PRODUCT_VIRGINIA, RDS_PRODUCT, ELASTICACHE_PRODUCT
 
 PRODUCTS_BY_LOCATION = {
     "Asia Pacific (Tokyo)": [json.dumps(EC2_PRODUCT)],
     "US East (N. Virginia)": [json.dumps(EC2_PRODUCT_VIRGINIA)],
 }
 
+RDS_BY_LOCATION = {
+    "Asia Pacific (Tokyo)": [json.dumps(RDS_PRODUCT)],
+}
+
+ELASTICACHE_BY_LOCATION = {
+    "Asia Pacific (Tokyo)": [json.dumps(ELASTICACHE_PRODUCT)],
+}
+
+_last_service_code = [None]
+
+_orig_query_products = None
+
 def mock_paginate(**kwargs):
+    sc = kwargs.get("ServiceCode", "")
+    _last_service_code[0] = sc
     location = None
     for f in kwargs.get("Filters", []):
         if f["Field"] == "location":
             location = f["Value"]
-    products = PRODUCTS_BY_LOCATION.get(location, [json.dumps(EC2_PRODUCT)])
+    if sc == "AmazonRDS":
+        products = RDS_BY_LOCATION.get(location, [json.dumps(RDS_PRODUCT)])
+    elif sc == "AmazonElastiCache":
+        products = ELASTICACHE_BY_LOCATION.get(location, [json.dumps(ELASTICACHE_PRODUCT)])
+    else:
+        products = PRODUCTS_BY_LOCATION.get(location, [json.dumps(EC2_PRODUCT)])
     return [{"PriceList": products}]
 
 mock_client = MagicMock()
@@ -255,3 +274,65 @@ class TestBatchMultiType:
         data = json.loads(out)
         assert len(data) >= 1
         assert "monthly" in data[0]
+
+
+# ── RDS E2E tests ───────────────────────────────────────────────
+
+class TestRdsE2E:
+    def test_rds_query_json(self):
+        out, err, rc = run_mocked("query", "rds", "-t", "db.r6g.xlarge", "-r", "tokyo", "-e", "aurora-mysql", "--json")
+        assert rc == 0, f"stderr: {err}"
+        data = json.loads(out)
+        assert len(data) >= 1
+        assert data[0]["instance_type"] == "db.r6g.xlarge"
+
+    def test_rds_query_with_deployment(self):
+        out, err, rc = run_mocked("query", "rds", "-t", "db.r6g.xlarge", "-r", "tokyo", "-e", "mysql", "-d", "Multi-AZ", "--json")
+        assert rc == 0, f"stderr: {err}"
+        data = json.loads(out)
+        assert isinstance(data, list)
+
+    def test_rds_query_table(self):
+        out, err, rc = run_mocked("query", "rds", "-t", "db.r6g.xlarge", "-r", "tokyo", "-e", "aurora-mysql")
+        assert rc == 0, f"stderr: {err}"
+        assert "RDS" in out
+        assert "db.r6g.xlarge" in out
+
+
+class TestElastiCacheE2E:
+    def test_elasticache_query_json(self):
+        out, err, rc = run_mocked("query", "elasticache", "-t", "cache.r6g.large", "-r", "tokyo", "-e", "redis", "--json")
+        assert rc == 0, f"stderr: {err}"
+        data = json.loads(out)
+        assert len(data) >= 1
+        assert data[0]["instance_type"] == "cache.r6g.large"
+
+
+class TestRegionsCommandE2E:
+    """Test the 'regions' command via subprocess (no mock needed)."""
+    def test_regions_json_count(self):
+        out, _, rc = run("regions", "--json")
+        assert rc == 0
+        data = json.loads(out)
+        assert len(data) == 34
+        codes = {r["code"] for r in data}
+        assert "ap-northeast-1" in codes
+        assert "us-east-1" in codes
+        assert "eu-central-1" in codes
+
+    def test_regions_table_format(self):
+        out, _, rc = run("regions")
+        assert rc == 0
+        assert "Supported regions (34)" in out
+
+
+class TestBatchMultiTypeE2E:
+    def test_batch_two_types_table(self):
+        out, err, rc = run_mocked("batch", "ec2", "-t", "c6g.xlarge,c6g.2xlarge", "-r", "tokyo")
+        assert rc == 0, f"stderr: {err}"
+        assert "Batch Pricing" in out
+
+    def test_batch_csv(self):
+        out, err, rc = run_mocked("batch", "ec2", "-t", "c6g.xlarge,c6g.2xlarge", "-r", "tokyo", "--csv")
+        assert rc == 0, f"stderr: {err}"
+        assert "instance_type" in out

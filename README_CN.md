@@ -10,7 +10,7 @@
 
 ```bash
 pip3 install boto3
-python3 pricing_tool.py --version                                          # v2.0.1
+python3 pricing_tool.py --version                                          # v2.0.2
 python3 pricing_tool.py --profile <your-profile> query ec2 -t c6g.xlarge -r 东京
 ```
 
@@ -300,6 +300,7 @@ python3 pricing_tool.py --profile <p> query <service> -t <type> -r <region> \
 | 容器 | `ecs` | `query ecs -t t3.medium -r 东京` |
 | 容器 | `eks` | `query eks -t t3.medium -r 东京` |
 | VMware | `evs` | `query evs -t i4i.metal -r 东京` |
+| 时序数据库 | `timestream` | `query timestream -t ... -r 东京` |
 
 > ⚠️ MQ / DAX / EMR 的实例类型**无服务前缀**，直接用 `m5.large` 而非 `mq.m5.large`
 
@@ -481,7 +482,7 @@ aws-pricing-tool/
 
 ```bash
 pip3 install pytest
-python3 -m pytest -v                    # 运行全部 186 个测试
+python3 -m pytest -v                    # 运行全部 200 个测试
 python3 -m pytest test_unit.py -v       # 仅单元测试
 python3 -m pytest test_e2e.py -v        # 仅 E2E 测试
 python3 -m pytest -k "extract_pricing"  # 按名称过滤
@@ -509,7 +510,7 @@ E2E 测试通过 subprocess 调用真实 CLI，使用 mock runner 注入模拟 A
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
-| v2.0.1 | 2025-04-24 | 修复 fastmcp v3 兼容性；Python 3.8 类型注解修复（`typing.List[Dict]`）；186 个测试（80 MCP + 79 unit + 27 E2E）；清理垃圾文件；新增 ElastiCache fixture；S3/Lambda/Bedrock/Graviton/RI 边界测试 |
+| v2.0.2 | 2025-04-24 | 修复 fastmcp v3 兼容性；Python 3.8 类型注解修复（`typing.List[Dict]`）；200 个测试（84 MCP + 81 unit + 35 E2E）；清理垃圾文件；新增 ElastiCache fixture；S3/Lambda/Bedrock/Graviton/RI 边界测试；修复 Partial Upfront RI upfront=0 bug；补齐 timestream 文档；RDS/ElastiCache E2E 覆盖 |
 | v2.0.0 | 2025-03-13 | MCP Server 升级至 12 个工具：+`graviton_recommend` +`ri_analysis` +`calculate_s3` +`calculate_lambda` +`calculate_bedrock` +`list_bedrock_models`；153 个测试（60 MCP + 93 原有）；"定价顾问"能力全部可通过 MCP 调用 |
 | v1.5.0 | 2025-03-13 | MCP Server（`mcp_server.py`）6 个工具；支持 Kiro/Claude Code/OpenClaw/Cursor/VS Code；113 个测试（20 MCP + 93 原有） |
 | v1.3.0 | 2025-03-12 | OpenClaw skill 支持（`openclaw-skill/`）；3 平台 AI Skill（Kiro + Claude Code + OpenClaw）；`.gitignore` 增强敏感文件过滤 |

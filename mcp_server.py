@@ -205,11 +205,15 @@ def _graviton_recommend(service, instance_type, region, engine="", operating_sys
     saving_pct = round((1 - arm_price / x86_price) * 100, 1)
     saving_monthly = round((x86_price - arm_price) * 730, 2)
     saving_yearly = round(saving_monthly * 12, 2)
+    if saving_pct <= 0:
+        recommendation = f"No savings: {alt} is same price or more expensive than {instance_type}."
+    else:
+        recommendation = f"Switch to {alt} to save ~{saving_pct}% (${saving_yearly}/yr)."
     return {
         "x86_type": instance_type, "x86_price_per_hour": x86_price,
         "graviton_type": alt, "graviton_price_per_hour": arm_price,
         "saving_percent": saving_pct, "saving_per_month": saving_monthly, "saving_per_year": saving_yearly,
-        "recommendation": f"Switch to {alt} to save ~{saving_pct}% (${saving_yearly}/yr).",
+        "recommendation": recommendation,
     }
 
 
@@ -236,22 +240,12 @@ def _ri_analysis(service, instance_type, region, engine="", operating_system="Li
         eff_monthly = eff * 730
         saving_monthly = od_monthly - eff_monthly
         saving_pct = round((1 - eff / od) * 100, 1)
-        # Get upfront cost: all_upfront has dedicated field, partial needs calculation
+        # Get upfront cost from extract_pricing fields
         upfront = 0
         if "all_upfront" in key:
             upfront = r.get(f"ri_{years}yr_all_upfront_total", 0) or 0
         elif "partial_upfront" in key:
-            # For partial: upfront = (effective - hourly_component) * total_hours
-            # hourly_component is stored in the effective rate, upfront is the remainder
-            hourly_only_key = f"ri_{years}yr_no_upfront"
-            hourly_only = r.get(hourly_only_key, eff)
-            if hourly_only and hourly_only < od:
-                total_hours = years * 8760
-                upfront = round((eff - (eff_monthly - (od_monthly - saving_monthly)) / 730) * 0, 2)
-                # Simpler: estimate upfront from effective rate vs no-upfront rate
-                upfront = round((eff * total_hours - eff_monthly * 12 * years) * 0, 2)
-                # Best estimate: effective_hourly * total_hours gives total cost, minus hourly portion
-                upfront = 0  # Cannot reliably extract from effective rate alone
+            upfront = r.get(f"ri_{years}yr_partial_upfront_total", 0) or 0
         breakeven_months = round(upfront / saving_monthly, 1) if saving_monthly > 0 and upfront > 0 else 0
         analysis["options"].append({
             "plan": label, "effective_hourly": round(eff, 4), "effective_monthly": round(eff_monthly, 2),

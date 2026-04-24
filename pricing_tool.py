@@ -4,7 +4,7 @@
 import argparse, csv, hashlib, io, json, os, sys, time
 import boto3
 
-__version__ = "2.0.1"
+__version__ = "2.0.2"
 PRICING_REGION = "us-east-1"
 CACHE_DIR = os.path.expanduser("~/.cache/aws-pricing")
 CACHE_TTL = 7 * 86400  # 7 days
@@ -212,6 +212,8 @@ def extract_pricing(product):
         result[f"ri_{k.lower()}"] = ri_map.get(k)
     result["ri_1yr_all_upfront_total"] = ri_map.get("1yr_All_Upfront_upfront")
     result["ri_3yr_all_upfront_total"] = ri_map.get("3yr_All_Upfront_upfront")
+    result["ri_1yr_partial_upfront_total"] = ri_map.get("1yr_Partial_Upfront_upfront")
+    result["ri_3yr_partial_upfront_total"] = ri_map.get("3yr_Partial_Upfront_upfront")
     return result
 
 def dedup_results(results):
@@ -438,7 +440,7 @@ def cmd_list(args):
     out_json, out_csv = _check_output_flags(args)
     client = get_client(args.profile)
     sc = SERVICE_CODES.get(args.service)
-    if not sc: print(f"Unknown service: {args.service}"); return
+    if not sc: print(f"Unknown service: {args.service}"); sys.exit(1)
     no_cache = getattr(args, "no_cache", False)
     types = list_instance_types(client, sc, resolve_location(args.region), use_cache=not no_cache)
     prefix = args.filter.lower() if args.filter else ""

@@ -213,6 +213,25 @@ class TestGravitonRecommend:
         result = _graviton_recommend("ec2", "c6g.xlarge", "tokyo")
         assert result.get("is_graviton") is True
 
+    @patch("mcp_server._get_client")
+    def test_same_price_no_savings(self, mock_client):
+        """When x86 and ARM have identical prices, recommendation should say no savings."""
+        mock_client.return_value = MagicMock()
+        with patch("pricing_tool.query_products", return_value=[EC2_PRODUCT]):
+            result = _graviton_recommend("ec2", "c6i.xlarge", "tokyo")
+            # Both return same mock product, so prices are equal
+            assert result["saving_percent"] == 0.0
+            assert "No savings" in result["recommendation"]
+
+
+    @patch("mcp_server._get_client")
+    def test_price_fetch_failure(self, mock_client):
+        """When pricing API returns no results, should return error."""
+        mock_client.return_value = MagicMock()
+        with patch("pricing_tool.query_products", return_value=[]):
+            result = _graviton_recommend("ec2", "c6i.xlarge", "tokyo")
+            assert "error" in result
+
 
 class TestRiAnalysis:
     @patch("mcp_server._get_client")
@@ -246,6 +265,30 @@ class TestRiAnalysis:
             for opt in result["options"]:
                 assert opt["saving_vs_od_percent"] > 0
                 assert opt["saving_per_month"] > 0
+
+    @patch("mcp_server._get_client")
+    def test_partial_upfront_has_cost(self, mock_client):
+        """Partial Upfront options should have non-zero upfront_cost."""
+        mock_client.return_value = MagicMock()
+        with patch("pricing_tool.query_products", return_value=[EC2_PRODUCT]):
+            result = _ri_analysis("ec2", "c6g.xlarge", "tokyo")
+            partial_opts = [o for o in result["options"] if "Partial" in o["plan"]]
+            assert len(partial_opts) >= 1
+            for opt in partial_opts:
+                assert opt["upfront_cost"] > 0
+                assert opt["breakeven_months"] > 0
+
+    @patch("mcp_server._get_client")
+    def test_all_upfront_has_cost(self, mock_client):
+        """All Upfront options should have non-zero upfront_cost."""
+        mock_client.return_value = MagicMock()
+        with patch("pricing_tool.query_products", return_value=[EC2_PRODUCT]):
+            result = _ri_analysis("ec2", "c6g.xlarge", "tokyo")
+            all_opts = [o for o in result["options"] if "All Upfront" in o["plan"]]
+            assert len(all_opts) >= 1
+            for opt in all_opts:
+                assert opt["upfront_cost"] > 0
+                assert opt["breakeven_months"] > 0
 
     def test_invalid_service(self):
         result = _ri_analysis("bad", "c6g.xlarge", "tokyo")

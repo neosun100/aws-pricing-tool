@@ -39,6 +39,26 @@ class TestResolveRegion:
     def test_unknown_returns_as_is(self):
         assert pt.resolve_region("unknown-region") == "unknown-region"
 
+    def test_all_34_regions_bidirectional(self):
+        """Regression: every region in REGION_MAP must be reachable via at least one alias,
+        and every alias must resolve to a valid REGION_MAP key (or cn- region)."""
+        # All aliases resolve to valid region codes
+        for alias, code in pt.REGION_ALIASES.items():
+            assert pt.resolve_region(alias) == code, f"alias '{alias}' failed"
+            if not code.startswith("cn-"):
+                assert code in pt.REGION_MAP, f"alias '{alias}' → '{code}' not in REGION_MAP"
+
+        # Every REGION_MAP region (except cn-) has at least one alias
+        aliased_codes = set(pt.REGION_ALIASES.values())
+        for code in pt.REGION_MAP:
+            assert code in aliased_codes, f"region '{code}' has no alias"
+
+    def test_all_english_aliases_lowercase(self):
+        """All English aliases should be lowercase."""
+        for alias in pt.REGION_ALIASES:
+            if alias.isascii():
+                assert alias == alias.lower(), f"English alias '{alias}' not lowercase"
+
 
 # ── resolve_location ────────────────────────────────────────────
 
